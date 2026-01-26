@@ -19,7 +19,8 @@ Branch: ralph/event-finder
 - Chat service: use `process_chat_message(message, conversation_id)` for chat with conversation history management
 - Event search: use `scrape_all_plugins()` for concurrent scraping, `is_event_search_request()` for keyword detection
 - Plugin generation: use `is_plugin_creation_request()` to detect "create plugin for [URL]" patterns, `create_plugin_for_url()` to generate and save plugins
-- Chat UI: POST `/api/chat` with `{ message, conversation_id }` returns `{ response, conversation_id }`
+- Chat UI: POST `/api/chat` with `{ message, conversation_id }` returns `{ response, conversation_id, events }`
+- Event cards: import EventCard from `./EventCard` and pass `EventData` objects to render rich event displays
 - Frontend components: place in `frontend/src/components/` directory
 
 ---
@@ -155,4 +156,22 @@ Branch: ralph/event-finder
   - Tailwind responsive classes: `max-w-[80%] sm:max-w-[70%]` for message bubbles that work on mobile
   - Loading indicator uses CSS `animate-bounce` with staggered `animationDelay` for typing dots effect
   - Input disabled state and button disabled state should both check `isLoading`
+---
+
+## 2026-01-26 - US-011
+- Created EventCard component for displaying events as rich cards in chat
+- Files changed:
+  - frontend/src/components/EventCard.tsx - New component with title, date/time, location, source badge
+  - frontend/src/components/Chat.tsx - Updated to render EventCard components from message events
+  - frontend/package.json - Added lucide-react for icons
+  - backend/models.py - Added EventResponse model for API responses
+  - backend/services/chat.py - Updated to return events array in chat responses
+- **Learnings for future iterations:**
+  - Use lucide-react for icons (Calendar, Clock, MapPin, ExternalLink)
+  - EventCard is clickable - uses `window.open(url, '_blank', 'noopener,noreferrer')` for security
+  - Source badges are color-coded using a mapping object (`sourceColors`)
+  - Chat API now returns `{ response, conversation_id, events }` where events is array of EventData
+  - Event dates are serialized as ISO strings from backend, formatted with `toLocaleDateString()` in frontend
+  - Cards render inline within message bubbles by checking `message.events && message.events.length > 0`
+  - `search_and_recommend_events()` now returns tuple of (response, events) instead of just response
 ---
