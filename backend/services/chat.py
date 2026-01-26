@@ -2,12 +2,22 @@
 
 import asyncio
 import logging
+import re
 import uuid
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
+
+from crawl4ai import AsyncWebCrawler
 
 from backend.models import Event
 from backend.services.ai import MessageDict, chat_with_context, send_message
-from backend.services.plugin_loader import get_plugin_registry
+from backend.services.plugin_loader import (
+    get_plugin_registry,
+    get_plugins_directory,
+    load_plugin_from_file,
+    reload_plugins,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +40,17 @@ EVENT_SEARCH_KEYWORDS = [
     "happening",
     "recommend",
     "suggestions",
+]
+
+# Patterns that indicate user wants to create a plugin
+PLUGIN_CREATION_PATTERNS = [
+    r"create\s+(?:a\s+)?plugin\s+for\s+(\S+)",
+    r"make\s+(?:a\s+)?plugin\s+for\s+(\S+)",
+    r"generate\s+(?:a\s+)?plugin\s+for\s+(\S+)",
+    r"build\s+(?:a\s+)?plugin\s+for\s+(\S+)",
+    r"add\s+(?:a\s+)?scraper\s+for\s+(\S+)",
+    r"create\s+(?:a\s+)?scraper\s+for\s+(\S+)",
+    r"scrape\s+(\S+)",
 ]
 
 
@@ -162,6 +183,332 @@ Here are the available events:
     return response
 
 
+def is_plugin_creation_request(message: str) -> tuple[bool, str | None]:
+    """Check if a message is requesting plugin creation.
+
+    Args:
+        message: The user's message.
+
+    Returns:
+        Tuple of (is_plugin_request, extracted_url).
+    """
+    message_lower = message.lower()
+    for pattern in PLUGIN_CREATION_PATTERNS:
+        match = re.search(pattern, message_lower)
+        if match:
+            url = match.group(1)
+            # Ensure URL has a scheme
+            if not url.startswith(("http://", "https://")):
+                url = "https://" + url
+            return True, url
+    return False, None
+
+
+def extract_domain_name(url: str) -> str:
+    """Extract a clean domain name for use as a plugin filename.
+
+    Args:
+        url: The URL to extract domain from.
+
+    Returns:
+        Clean domain name suitable for a filename.
+    """
+    parsed = urlparse(url)
+    domain = parsed.netloc or parsed.path.split("/")[0]
+    # Remove www. prefix
+    if domain.startswith("www."):
+        domain = domain[4:]
+    # Replace dots and hyphens with underscores
+    clean_name = re.sub(r"[.\-]", "_", domain)
+    # Remove any non-alphanumeric characters except underscores
+    clean_name = re.sub(r"[^a-z0-9_]", "", clean_name.lower())
+    return clean_name
+
+
+async def crawl_url_for_structure(url: str) -> str:
+    """Crawl a URL to get its page structure for plugin generation.
+
+    Args:
+        url: The URL to crawl.
+
+    Returns:
+        Markdown representation of the page content.
+    """
+    async with AsyncWebCrawler() as crawler:
+        result = await crawler.arun(url=url)
+        return result.markdown
+
+
+def get_plugin_template() -> str:
+    """Get the plugin template with instructions for Claude.
+
+    Returns:
+        Template string with instructions and example code.
+    """
+    return '''You are generating a Python scraper plugin for EventFinder.
+
+The plugin MUST follow this exact interface:
+
+```python
+"""[Domain] event scraper plugin."""
+
+import logging
+import re
+import uuid
+from datetime import datetime
+
+from backend.models import Event
+from backend.plugins.base import ScraperPlugin
+
+logger = logging.getLogger(__name__)
+
+
+class [Name]Plugin(ScraperPlugin):
+    """Scraper plugin for [domain] events."""
+
+    name = "[Name]"
+    source_url = "[url]"
+    description = "Scrapes events from [domain]"
+
+    async def scrape(self) -> list[Event]:
+        """Scrape events from the source.
+
+        Returns:
+            List of Event objects scraped from the source.
+            Returns empty list on error.
+        """
+        try:
+            markdown = await self.crawl(self.source_url)
+            return self._parse_events(markdown)
+        except Exception as e:
+            logger.error(f"Error scraping events: {e}")
+            return []
+
+    def _parse_events(self, markdown: str) -> list[Event]:
+        """Parse event data from markdown content.
+
+        Args:
+            markdown: Markdown content from crawled page.
+
+        Returns:
+            List of Event objects parsed from content.
+        """
+        events: list[Event] = []
+        # TODO: Implement parsing logic based on page structure
+        # Look for event titles, dates, times, locations, and URLs
+        # Use regex patterns to extract data from markdown
+
+        # Example pattern for extracting events:
+        # lines = markdown.split("\\n")
+        # for line in lines:
+        #     if event_pattern_match:
+        #         events.append(Event(...))
+
+        return events
+
+    def _create_event(self, title: str, url: str, date_str: str | None = None,
+                      time_str: str | None = None, location: str | None = None,
+                      description: str | None = None) -> Event:
+        """Create an Event object from parsed data.
+
+        Args:
+            title: Event title.
+            url: Event URL.
+            date_str: Optional date string.
+            time_str: Optional time string.
+            location: Optional location.
+            description: Optional description.
+
+        Returns:
+            Event object.
+        """
+        event_date = datetime.now()
+        if date_str:
+            try:
+                # Parse date - adjust formats as needed
+                for fmt in ["%b %d", "%B %d", "%Y-%m-%d", "%m/%d/%Y"]:
+                    try:
+                        parsed = datetime.strptime(date_str.strip(), fmt)
+                        if parsed.year == 1900:
+                            parsed = parsed.replace(year=datetime.now().year)
+                        event_date = parsed
+                        break
+                    except ValueError:
+                        continue
+            except Exception:
+                pass
+
+        return Event(
+            id=str(uuid.uuid4()),
+            title=title,
+            description=description,
+            date=event_date,
+            time=time_str,
+            location=location,
+            url=url,
+            source=self.name,
+            tags=[],
+        )
+```
+
+IMPORTANT REQUIREMENTS:
+1. The class MUST inherit from ScraperPlugin
+2. The class MUST have name, source_url, and description class attributes
+3. The scrape() method MUST be async and return list[Event]
+4. Always use try/except in scrape() and return empty list on error
+5. Use the inherited self.crawl(url) method to fetch page content as markdown
+6. Parse the markdown to extract event information
+7. Use uuid.uuid4() for event IDs
+8. The file should be self-contained with all necessary imports
+
+Analyze the page structure provided and implement appropriate parsing logic.
+Return ONLY the Python code, no explanations or markdown code blocks.
+'''
+
+
+async def generate_plugin_code(url: str, page_markdown: str) -> str:
+    """Generate plugin code using Claude.
+
+    Args:
+        url: The source URL for the plugin.
+        page_markdown: Markdown content of the page to scrape.
+
+    Returns:
+        Generated Python code for the plugin.
+    """
+    domain_name = extract_domain_name(url)
+    plugin_name = "".join(word.capitalize() for word in domain_name.split("_"))
+
+    template = get_plugin_template()
+
+    # Truncate markdown if too long (keep first 8000 chars for context)
+    if len(page_markdown) > 8000:
+        page_markdown = page_markdown[:8000] + "\n... [truncated]"
+
+    system_prompt = template + f"""
+
+Generate a plugin for:
+- URL: {url}
+- Plugin name: {plugin_name}
+- Plugin filename will be: {domain_name}.py
+
+Here is the page structure (markdown format):
+
+{page_markdown}
+"""
+
+    response = await send_message(
+        message=f"Generate a scraper plugin for {url}. Analyze the page structure and implement parsing logic to extract events.",
+        system_prompt=system_prompt,
+    )
+
+    # Clean up the response - remove markdown code blocks if present
+    code = response.strip()
+    if code.startswith("```python"):
+        code = code[9:]
+    elif code.startswith("```"):
+        code = code[3:]
+    if code.endswith("```"):
+        code = code[:-3]
+
+    return code.strip()
+
+
+def save_plugin_file(domain_name: str, code: str) -> Path:
+    """Save generated plugin code to a file.
+
+    Args:
+        domain_name: Clean domain name for the filename.
+        code: Python code to save.
+
+    Returns:
+        Path to the saved file.
+    """
+    plugins_dir = get_plugins_directory()
+    file_path = plugins_dir / f"{domain_name}.py"
+    file_path.write_text(code)
+    return file_path
+
+
+async def test_generated_plugin(file_path: Path) -> tuple[bool, str]:
+    """Test a generated plugin by loading and running it.
+
+    Args:
+        file_path: Path to the plugin file.
+
+    Returns:
+        Tuple of (success, message).
+    """
+    try:
+        # Try to load the plugin
+        plugin_classes = load_plugin_from_file(file_path)
+
+        if not plugin_classes:
+            return False, "No valid ScraperPlugin class found in generated code."
+
+        # Try to instantiate and run scrape
+        plugin_class = plugin_classes[0]
+        plugin_instance = plugin_class()
+
+        logger.info(f"Testing plugin: {plugin_instance.name}")
+
+        # Run a test scrape
+        events = await plugin_instance.scrape()
+
+        return True, f"Plugin '{plugin_instance.name}' loaded successfully. Found {len(events)} events."
+
+    except SyntaxError as e:
+        return False, f"Syntax error in generated code: {e}"
+    except ImportError as e:
+        return False, f"Import error in generated code: {e}"
+    except Exception as e:
+        return False, f"Error testing plugin: {e}"
+
+
+async def create_plugin_for_url(url: str) -> str:
+    """Create a new plugin for the given URL.
+
+    Args:
+        url: The URL to create a plugin for.
+
+    Returns:
+        Response message with results.
+    """
+    domain_name = extract_domain_name(url)
+
+    try:
+        # Step 1: Crawl the URL to get page structure
+        logger.info(f"Crawling {url} for page structure...")
+        page_markdown = await crawl_url_for_structure(url)
+
+        if not page_markdown:
+            return f"Failed to crawl {url}. The page might be inaccessible or empty."
+
+        # Step 2: Generate plugin code using Claude
+        logger.info("Generating plugin code with Claude...")
+        plugin_code = await generate_plugin_code(url, page_markdown)
+
+        # Step 3: Save the plugin file
+        logger.info(f"Saving plugin to {domain_name}.py...")
+        file_path = save_plugin_file(domain_name, plugin_code)
+
+        # Step 4: Test the generated plugin
+        logger.info("Testing generated plugin...")
+        success, test_message = await test_generated_plugin(file_path)
+
+        if success:
+            # Step 5: Reload all plugins to include the new one
+            reload_plugins()
+            return f"Successfully created plugin for {url}!\n\n{test_message}\n\nThe plugin has been saved to `{file_path.name}` and is now ready to use."
+        else:
+            # Keep the file for debugging but warn about the error
+            return f"Plugin generated but there was an error during testing:\n\n{test_message}\n\nThe plugin file has been saved to `{file_path.name}`. You may need to manually fix it or try again."
+
+    except Exception as e:
+        logger.error(f"Error creating plugin for {url}: {e}")
+        return f"Failed to create plugin for {url}: {e}"
+
+
 def get_or_create_conversation(conversation_id: str | None) -> tuple[str, list[MessageDict]]:
     """Get an existing conversation or create a new one.
 
@@ -196,8 +543,12 @@ async def process_chat_message(
     # Get or create conversation
     conv_id, messages = get_or_create_conversation(conversation_id)
 
-    # Check if this is an event search request
-    if is_event_search_request(message):
+    # Check if this is a plugin creation request
+    is_plugin_request, plugin_url = is_plugin_creation_request(message)
+    if is_plugin_request and plugin_url:
+        # Create a plugin for the URL
+        response = await create_plugin_for_url(plugin_url)
+    elif is_event_search_request(message):
         # Use event search and recommendation
         response = await search_and_recommend_events(
             user_message=message,
