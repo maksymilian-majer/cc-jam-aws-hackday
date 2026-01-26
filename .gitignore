@@ -64,3 +64,6 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+
+# Ralph agent state
+scripts/ralph/.last-branch
