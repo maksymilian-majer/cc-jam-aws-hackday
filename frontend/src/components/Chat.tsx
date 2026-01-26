@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
-import EventCard, { EventData } from './EventCard';
+import { useState, useRef, useEffect } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
+import EventCard from './EventCard';
+import type { EventData } from './EventCard';
 
 interface Message {
   id: string;
