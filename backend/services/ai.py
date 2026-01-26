@@ -252,9 +252,11 @@ async def chat_with_tools(
         messages: list[dict[str, Any]] = []
         if conversation_history:
             messages.extend(conversation_history)
+            logger.info(f"Loaded {len(conversation_history)} messages from history")
 
         # Add current user message
         messages.append({"role": "user", "content": message})
+        logger.info(f"Total messages being sent to Claude: {len(messages)}")
 
         # Agentic loop - keep processing until we get a final response
         max_iterations = 5

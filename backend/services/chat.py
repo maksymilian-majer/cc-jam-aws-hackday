@@ -404,6 +404,9 @@ async def process_chat_message(
     """
     conv_id, messages = get_or_create_conversation(conversation_id)
 
+    logger.info(f"Processing message for conversation {conv_id}")
+    logger.info(f"Existing history: {len(messages)} messages")
+
     # Use tool-based chat - Claude decides when to use tools
     response, events = await chat_with_tools(
         message=message,
@@ -415,6 +418,8 @@ async def process_chat_message(
     # Store conversation history (simplified - just text for now)
     messages.append({"role": "user", "content": message})
     messages.append({"role": "assistant", "content": response})
+
+    logger.info(f"Updated history: {len(messages)} messages")
 
     return {
         "response": response,

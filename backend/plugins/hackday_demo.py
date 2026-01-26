@@ -53,7 +53,7 @@ class HackDayDemoPlugin(ScraperPlugin):
                 date=event_start.replace(tzinfo=None),  # Store as naive datetime
                 time=time_str,
                 location="Amazon, San Francisco",
-                url="https://lu.ma/hackday-amazon",
+                url=self.source_url,
                 source=self.name,
                 tags=["hackathon", "ai", "claude", "amazon"],
             )
