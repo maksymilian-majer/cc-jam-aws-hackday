@@ -22,6 +22,7 @@ Branch: ralph/event-finder
 - Chat UI: POST `/api/chat` with `{ message, conversation_id }` returns `{ response, conversation_id, events }`
 - Event cards: import EventCard from `./EventCard` and pass `EventData` objects to render rich event displays
 - Frontend components: place in `frontend/src/components/` directory
+- PluginPanel: fetches from `/api/plugins`, triggers generation via `/api/chat` with "Create a plugin for [URL]" message
 
 ---
 
@@ -174,4 +175,20 @@ Branch: ralph/event-finder
   - Event dates are serialized as ISO strings from backend, formatted with `toLocaleDateString()` in frontend
   - Cards render inline within message bubbles by checking `message.events && message.events.length > 0`
   - `search_and_recommend_events()` now returns tuple of (response, events) instead of just response
+---
+
+## 2026-01-26 - US-012
+- Added plugin management sidebar with modal for plugin generation
+- Files changed:
+  - frontend/src/components/PluginPanel.tsx - New sidebar component with plugin list, refresh, and generation modal
+  - frontend/src/App.tsx - Updated layout to include PluginPanel sidebar alongside Chat
+- **Learnings for future iterations:**
+  - PluginPanel fetches plugins from GET /api/plugins on mount and after generation
+  - Plugin generation uses POST /api/chat with "Create a plugin for [URL]" message pattern
+  - Modal state management: showModal, isGenerating, generationError, generationSuccess
+  - Responsive layout: sidebar hidden on mobile (`hidden lg:block`), uses `w-80 flex-shrink-0`
+  - Main chat area uses `flex-1 min-w-0` to allow proper shrinking in flexbox
+  - Lucide icons: Plug, Plus, RefreshCw, ExternalLink, X for consistent UI
+  - Success/error states shown in modal with colored backgrounds (green-50/red-50)
+  - Auto-close modal after 2 seconds on successful generation using setTimeout
 ---
