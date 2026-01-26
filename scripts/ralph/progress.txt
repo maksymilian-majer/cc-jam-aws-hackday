@@ -11,6 +11,8 @@ Branch: ralph/event-finder
 - Run frontend typecheck with: `cd frontend && npx tsc --noEmit`
 - Frontend uses Tailwind CSS v4 via @tailwindcss/vite plugin (import with `@import "tailwindcss"`)
 - Frontend proxy configured: `/api` routes to backend at localhost:8000
+- Backend requires `backend/__init__.py` for mypy to resolve module paths correctly
+- Plugin imports use `from backend.models import Event` (full path from project root)
 
 ---
 
@@ -37,4 +39,29 @@ Branch: ralph/event-finder
   - Use @tailwindcss/vite plugin for Vite integration (not postcss config)
   - Vite proxy config at `server.proxy` maps `/api` to backend localhost:8000
   - TypeScript build command: `tsc -b && vite build` (runs typecheck then build)
+---
+
+## 2026-01-26 - US-003
+- Defined Event Pydantic model and ScraperPlugin abstract base class
+- Files changed:
+  - backend/__init__.py - Created to make backend a proper Python package
+  - backend/models.py - Event Pydantic model with all required fields
+  - backend/plugins/__init__.py - Plugin package init, exports ScraperPlugin
+  - backend/plugins/base.py - ScraperPlugin ABC with name, source_url, description attributes, abstract scrape() method, and crawl() helper using AsyncWebCrawler
+- **Learnings for future iterations:**
+  - Backend needs `__init__.py` for mypy module resolution to work correctly
+  - ScraperPlugin subclasses must define name, source_url, description as class attributes
+  - crawl() helper returns markdown representation of page from crawl4ai
+---
+
+## 2026-01-26 - US-004
+- Created Luma scraper plugin implementing ScraperPlugin interface
+- Files changed:
+  - backend/plugins/luma.py - LumaPlugin class that scrapes events from lu.ma/sf
+- **Learnings for future iterations:**
+  - ScraperPlugin subclasses use the inherited crawl() method to fetch markdown content
+  - Event parsing from markdown requires flexible regex patterns for dates/times/locations
+  - Always wrap scrape() in try/except and return empty list on error (log the error)
+  - Generate unique event IDs with uuid.uuid4()
+  - Luma event links are formatted as [Title](https://lu.ma/...) in markdown output
 ---
