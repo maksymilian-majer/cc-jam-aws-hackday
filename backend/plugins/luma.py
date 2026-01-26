@@ -3,7 +3,7 @@
 import logging
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from backend.models import Event
 from backend.plugins.base import ScraperPlugin
@@ -39,6 +39,47 @@ class LumaPlugin(ScraperPlugin):
             logger.error(f"Error scraping Luma events: {e}")
             return []
 
+    def _parse_date_header(self, line: str, next_line: str | None) -> datetime | None:
+        """Parse a date from section headers like 'Today', 'Tomorrow', or 'Jan 28'.
+
+        Args:
+            line: Current line that might be a date header.
+            next_line: Next line (might contain day of week).
+
+        Returns:
+            Parsed datetime or None if not a date header.
+        """
+        line = line.strip()
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Check for "Today" or "Tomorrow"
+        if line == "Today":
+            return today
+        if line == "Tomorrow":
+            return today + timedelta(days=1)
+
+        # Check for month-day format like "Jan 28", "Feb 5"
+        month_day_match = re.match(
+            r"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})$",
+            line,
+            re.IGNORECASE,
+        )
+        if month_day_match:
+            month_str = month_day_match.group(1)
+            day = int(month_day_match.group(2))
+            try:
+                # Parse with current year
+                parsed = datetime.strptime(f"{month_str} {day}", "%b %d")
+                parsed = parsed.replace(year=today.year)
+                # If date is in the past, assume next year
+                if parsed < today:
+                    parsed = parsed.replace(year=today.year + 1)
+                return parsed
+            except ValueError:
+                pass
+
+        return None
+
     def _parse_events(self, markdown: str) -> list[Event]:
         """Parse event data from markdown content.
 
@@ -51,15 +92,24 @@ class LumaPlugin(ScraperPlugin):
         events: list[Event] = []
         lines = markdown.split("\n")
 
-        current_event: dict[str, str | None] = {}
+        current_event: dict[str, str | datetime | None] = {}
+        current_date: datetime | None = None
         i = 0
 
         while i < len(lines):
             line = lines[i].strip()
+            next_line = lines[i + 1].strip() if i + 1 < len(lines) else None
+
+            # Check for date section headers
+            parsed_date = self._parse_date_header(line, next_line)
+            if parsed_date:
+                current_date = parsed_date
+                i += 1
+                continue
 
             # Look for empty event links: [ ](https://luma.com/eventid)
             # These mark the start of a new event
-            link_match = re.search(r"\[\s*\]\((https://luma\.com/[a-zA-Z0-9]+)\)", line)
+            link_match = re.search(r"\[\s*\]\((https://luma\.com/[a-zA-Z0-9_-]+)\)", line)
             if link_match:
                 # Save previous event if exists
                 if current_event.get("title") and current_event.get("url"):
@@ -67,11 +117,11 @@ class LumaPlugin(ScraperPlugin):
                     if event:
                         events.append(event)
 
-                # Start new event
+                # Start new event with current section date
                 current_event = {
                     "title": None,
                     "url": link_match.group(1).strip(),
-                    "date": None,
+                    "date": current_date,
                     "time": None,
                     "location": None,
                 }
@@ -107,7 +157,7 @@ class LumaPlugin(ScraperPlugin):
                         continue
 
                     # Skip status badges
-                    if next_line in ["Waitlist", "Going", "Interested"]:
+                    if next_line in ["Waitlist", "Going", "Interested", "Sold Out"]:
                         continue
 
                     # Location: moderate-length text that isn't a title or time
@@ -131,7 +181,7 @@ class LumaPlugin(ScraperPlugin):
 
         return events
 
-    def _create_event(self, data: dict[str, str | None]) -> Event | None:
+    def _create_event(self, data: dict[str, str | datetime | None]) -> Event | None:
         """Create an Event object from parsed data.
 
         Args:
@@ -146,37 +196,34 @@ class LumaPlugin(ScraperPlugin):
         if not title or not url:
             return None
 
-        # Parse date or use current date as fallback
+        # Use provided date or fall back to current date
         event_date = datetime.now()
-        date_str = data.get("date")
-        if date_str:
-            try:
-                # Try to parse various date formats
-                for fmt in ["%b %d", "%B %d", "%b %d, %Y", "%B %d, %Y"]:
-                    try:
-                        parsed = datetime.strptime(date_str.strip(), fmt)
-                        # If no year, assume current or next year
-                        if parsed.year == 1900:
-                            current_year = datetime.now().year
-                            parsed = parsed.replace(year=current_year)
-                            # If date is in the past, assume next year
-                            if parsed < datetime.now():
-                                parsed = parsed.replace(year=current_year + 1)
-                        event_date = parsed
-                        break
-                    except ValueError:
-                        continue
-            except Exception:
-                pass
+        date_value = data.get("date")
+        if isinstance(date_value, datetime):
+            event_date = date_value
+        elif isinstance(date_value, str):
+            # Try to parse string date formats
+            for fmt in ["%b %d", "%B %d", "%b %d, %Y", "%B %d, %Y"]:
+                try:
+                    parsed = datetime.strptime(date_value.strip(), fmt)
+                    if parsed.year == 1900:
+                        current_year = datetime.now().year
+                        parsed = parsed.replace(year=current_year)
+                        if parsed < datetime.now():
+                            parsed = parsed.replace(year=current_year + 1)
+                    event_date = parsed
+                    break
+                except ValueError:
+                    continue
 
         return Event(
             id=str(uuid.uuid4()),
-            title=title,
+            title=str(title),
             description=None,
             date=event_date,
-            time=data.get("time"),
-            location=data.get("location"),
-            url=url,
+            time=str(data.get("time")) if data.get("time") else None,
+            location=str(data.get("location")) if data.get("location") else None,
+            url=str(url),
             source=self.name,
             tags=[],
         )
