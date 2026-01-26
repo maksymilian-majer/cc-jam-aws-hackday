@@ -22,6 +22,8 @@ Create detailed Product Requirements Documents that are clear, actionable, and s
 
 ## Step 1: Clarifying Questions
 
+**IMPORTANT**: Use the AskUserQuestionTool to ask clarifying questions.
+
 Ask only critical questions where the initial prompt is ambiguous. Focus on:
 
 - **Problem/Goal:** What problem does this solve?
