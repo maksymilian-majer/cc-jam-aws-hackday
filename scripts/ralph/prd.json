@@ -1,0 +1,213 @@
+{
+  "project": "EventFinder",
+  "branchName": "ralph/event-finder",
+  "description": "Event Finder with AI-Powered Plugin Generation - Chat-based event discovery using crawl4ai scrapers",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Set up FastAPI backend structure",
+      "description": "As a developer, I need the backend project scaffolding with FastAPI.",
+      "acceptanceCriteria": [
+        "Create backend/ directory with main.py",
+        "FastAPI app with /api prefix using APIRouter",
+        "Health check endpoint: GET /api/health returns {\"status\": \"ok\"}",
+        "CORS middleware configured for localhost:5173 (Vite default)",
+        "requirements.txt with fastapi, uvicorn, pydantic, anthropic, crawl4ai",
+        "Backend runs with: uvicorn backend.main:app --reload",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Set up React frontend with Vite",
+      "description": "As a developer, I need the frontend project scaffolding with React and TypeScript.",
+      "acceptanceCriteria": [
+        "Create frontend/ directory using Vite + React + TypeScript template",
+        "Install and configure Tailwind CSS",
+        "Create basic App.tsx with placeholder text",
+        "Configure proxy to backend API in vite.config.ts",
+        "Frontend runs with: npm run dev (from frontend/)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Define Event model and plugin interface",
+      "description": "As a developer, I need a standard interface for plugins so all scrapers output consistent data.",
+      "acceptanceCriteria": [
+        "Create backend/models.py with Event Pydantic model",
+        "Event fields: id (str), title (str), description (str|None), date (datetime), time (str|None), location (str|None), url (str), source (str), tags (list[str] default [])",
+        "Create backend/plugins/base.py with ScraperPlugin ABC",
+        "ScraperPlugin has: name, source_url, description attributes",
+        "ScraperPlugin has abstract async scrape() -> list[Event] method",
+        "ScraperPlugin has async crawl(url) helper using AsyncWebCrawler",
+        "Create backend/plugins/__init__.py",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create Luma scraper plugin",
+      "description": "As a user, I want events from lu.ma scraped so I can discover Luma events.",
+      "acceptanceCriteria": [
+        "Create backend/plugins/luma.py implementing ScraperPlugin",
+        "Plugin scrapes https://lu.ma/sf (or SF Bay Area events page)",
+        "Uses crawl4ai AsyncWebCrawler to fetch page",
+        "Parses markdown output to extract event title, date, location, URL",
+        "Returns list of Event objects (empty list on error, logs error)",
+        "Plugin has name='Luma', source_url, description set",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Build plugin loader system",
+      "description": "As a developer, I need to dynamically load plugins so users can add new scrapers.",
+      "acceptanceCriteria": [
+        "Create backend/services/plugin_loader.py",
+        "Function to scan backend/plugins/ for .py files (excluding __init__.py, base.py)",
+        "Dynamically import modules and find ScraperPlugin subclasses",
+        "Store loaded plugins in a registry dict",
+        "Function to reload all plugins on demand",
+        "GET /api/plugins endpoint returns list of {name, source_url, description}",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Create Claude AI service",
+      "description": "As a developer, I need a service to interact with Claude API for chat and recommendations.",
+      "acceptanceCriteria": [
+        "Create backend/services/ai.py",
+        "Function to send messages to Claude API (anthropic SDK)",
+        "Support conversation history (list of messages)",
+        "Use claude-sonnet model",
+        "Handle API errors gracefully",
+        "ANTHROPIC_API_KEY loaded from environment",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Create chat API endpoint",
+      "description": "As a user, I want to chat with the AI to describe my event interests.",
+      "acceptanceCriteria": [
+        "Create backend/services/chat.py for chat logic",
+        "POST /api/chat accepts {message: str, conversation_id: str | None}",
+        "Generate conversation_id (uuid) if not provided",
+        "Store conversations in-memory dict (conversation_id -> messages list)",
+        "Returns {response: str, conversation_id: str}",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Implement event search and recommendation",
+      "description": "As a user, I want the AI to recommend events based on my described interests.",
+      "acceptanceCriteria": [
+        "Detect when user asks for events (keywords: find, search, events, hackathons, meetups)",
+        "Scrape all loaded plugins concurrently using asyncio.gather",
+        "Format events as context for Claude prompt",
+        "Claude ranks events and explains why each matches user interests",
+        "Response includes event details with clickable URLs",
+        "Return 'No matching events found' if no events or none match",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Build plugin generation capability",
+      "description": "As a user, I want to request a new scraper plugin and have the AI generate it.",
+      "acceptanceCriteria": [
+        "Detect when user says 'create a plugin for [URL]' or similar",
+        "Crawl the target URL with crawl4ai to get page structure",
+        "Send page markdown to Claude with plugin template and instructions",
+        "Claude generates Python code following ScraperPlugin interface",
+        "Save generated code to backend/plugins/[domain].py",
+        "Reload plugins after generation",
+        "Return confirmation message with test results or errors",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Create chat UI component",
+      "description": "As a user, I want a chat interface to interact with the event finder.",
+      "acceptanceCriteria": [
+        "Create frontend/src/components/Chat.tsx",
+        "Chat input field with send button at bottom",
+        "Message history: user messages right-aligned, AI messages left-aligned",
+        "Loading spinner/indicator while waiting for AI response",
+        "Auto-scroll to latest message on new messages",
+        "Basic responsive design (works on mobile widths)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Display event cards in chat",
+      "description": "As a user, I want events displayed as rich cards so I can quickly scan them.",
+      "acceptanceCriteria": [
+        "Create frontend/src/components/EventCard.tsx",
+        "Card shows: title, date/time, location, source badge (colored by source)",
+        "Card is clickable - opens event URL in new tab",
+        "Parse event data from AI response (JSON in response or structured format)",
+        "Cards render inline within chat message bubbles",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Add plugin management sidebar",
+      "description": "As a user, I want to see loaded plugins and trigger new plugin generation.",
+      "acceptanceCriteria": [
+        "Create frontend/src/components/PluginPanel.tsx",
+        "Sidebar shows list of loaded plugins (fetched from /api/plugins)",
+        "Each plugin shows name and source URL",
+        "Generate Plugin button opens modal/input for URL",
+        "Shows loading state during plugin generation",
+        "Refreshes plugin list after successful generation",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
