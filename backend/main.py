@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRouter
 
+from backend.services.plugin_loader import get_plugin_info, load_all_plugins
+
 # Create the main FastAPI app
 app = FastAPI(
     title="EventFinder API",
@@ -28,6 +30,23 @@ api_router = APIRouter(prefix="/api")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@api_router.get("/plugins")
+async def list_plugins() -> list[dict[str, str]]:
+    """List all loaded scraper plugins.
+
+    Returns:
+        List of plugin information (name, source_url, description).
+    """
+    return get_plugin_info()
+
+
+# Load plugins on startup
+@app.on_event("startup")
+async def startup_event() -> None:
+    """Load plugins when the application starts."""
+    load_all_plugins()
 
 
 # Include the API router
