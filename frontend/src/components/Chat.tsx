@@ -223,7 +223,22 @@ export default function Chat() {
                     ? 'theme-prose'
                     : 'theme-prose prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-li:my-0.5'
                 }`}>
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      a: ({ href, children }) => (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={isBrutalist ? 'text-red-600 hover:text-red-700 underline' : 'text-cyan-400 hover:text-cyan-300'}
+                        >
+                          {children}
+                        </a>
+                      ),
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
                 </div>
               )}
               {/* Event cards */}

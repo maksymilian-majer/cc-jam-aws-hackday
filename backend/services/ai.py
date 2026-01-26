@@ -1,30 +1,242 @@
-"""Claude AI service for chat and recommendations."""
+"""Claude AI service with tool calling for event discovery."""
 
+import asyncio
+import json
 import logging
 import os
 from typing import Any
 
 import anthropic
 
+from backend.models import Event
+
 logger = logging.getLogger(__name__)
 
 # Message type for conversation history
-MessageDict = dict[str, str]
+MessageDict = dict[str, Any]
+
+# Tool definitions for Claude
+TOOLS = [
+    {
+        "name": "search_events",
+        "description": "Search for events from all loaded scraper plugins. Use this whenever the user asks about events, wants to find activities, or is looking for things to do. Returns a list of events with titles, dates, times, locations, and URLs.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Optional search query to filter events (e.g., 'afternoon tea', 'hackathon', 'AI meetup'). Leave empty to get all available events.",
+                }
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "create_plugin",
+        "description": "Create a new scraper plugin to fetch events from a specific website. Use this when the user wants to add a new event source or asks to scrape events from a URL that isn't already supported.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The URL of the events page to create a scraper for (e.g., 'https://meetup.com/find/?location=sf').",
+                }
+            },
+            "required": ["url"],
+        },
+    },
+]
+
+SYSTEM_PROMPT = """You are Schedule Hacker, an AI assistant that helps users discover events and activities.
+
+## Your Capabilities
+You have access to tools that let you:
+1. **search_events** - Search for events from loaded scraper plugins
+2. **create_plugin** - Create new scraper plugins for event websites
+
+## When to Use Tools
+- When users ask about events, activities, meetups, hackathons, conferences, parties, or anything happening - use search_events
+- When users want to add a new event source or mention a website URL - use create_plugin
+
+## Response Guidelines
+When presenting events to users, ALWAYS include:
+- **Event title** as a clickable markdown link: [Event Title](url)
+- **Date and time** if available
+- **Location** if available
+- Brief description of why this event matches their interests
+
+Example format:
+### [SF AI Builders Meetup](https://lu.ma/abc123)
+📅 Saturday, Feb 1 • 6:00 PM
+📍 San Francisco, CA
+Great for networking with AI enthusiasts and builders.
+
+## Important
+- Always use the search_events tool to get real event data - never make up events
+- Include direct links so users can easily click to learn more
+- If no events match, suggest using create_plugin to add new sources
+- Be concise but informative"""
 
 
 def get_anthropic_client() -> anthropic.Anthropic:
-    """Get the Anthropic client with API key from environment.
-
-    Returns:
-        Configured Anthropic client.
-
-    Raises:
-        ValueError: If ANTHROPIC_API_KEY environment variable is not set.
-    """
+    """Get the Anthropic client with API key from environment."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
     return anthropic.Anthropic(api_key=api_key)
+
+
+def format_events_for_tool_response(events: list[Event]) -> str:
+    """Format events as a structured response for the tool result."""
+    if not events:
+        return json.dumps({"events": [], "message": "No events found from current sources."})
+
+    events_data = []
+    for event in events:
+        event_dict = {
+            "title": event.title,
+            "url": event.url,
+            "date": event.date.strftime("%Y-%m-%d") if event.date else None,
+            "time": event.time,
+            "location": event.location,
+            "description": event.description,
+            "source": event.source,
+        }
+        events_data.append(event_dict)
+
+    return json.dumps({
+        "events": events_data,
+        "count": len(events_data),
+        "message": f"Found {len(events_data)} events.",
+    })
+
+
+async def handle_tool_call(
+    tool_name: str,
+    tool_input: dict[str, Any],
+    scrape_function: Any,
+    create_plugin_function: Any,
+) -> tuple[str, list[Event]]:
+    """Handle a tool call and return the result.
+
+    Args:
+        tool_name: Name of the tool to call.
+        tool_input: Input parameters for the tool.
+        scrape_function: Async function to scrape events.
+        create_plugin_function: Async function to create a plugin.
+
+    Returns:
+        Tuple of (tool result string, list of events if any).
+    """
+    events: list[Event] = []
+
+    if tool_name == "search_events":
+        query = tool_input.get("query")
+        logger.info(f"Tool call: search_events(query={query})")
+        events = await scrape_function(query=query)
+        return format_events_for_tool_response(events), events
+
+    elif tool_name == "create_plugin":
+        url = tool_input.get("url", "")
+        logger.info(f"Tool call: create_plugin(url={url})")
+        result = await create_plugin_function(url)
+        return json.dumps({"result": result}), []
+
+    else:
+        logger.warning(f"Unknown tool: {tool_name}")
+        return json.dumps({"error": f"Unknown tool: {tool_name}"}), []
+
+
+async def chat_with_tools(
+    message: str,
+    conversation_history: list[MessageDict] | None = None,
+    scrape_function: Any = None,
+    create_plugin_function: Any = None,
+) -> tuple[str, list[Event]]:
+    """Send a message to Claude with tool calling support.
+
+    Args:
+        message: The user's message.
+        conversation_history: Optional conversation history.
+        scrape_function: Async function to scrape events.
+        create_plugin_function: Async function to create plugins.
+
+    Returns:
+        Tuple of (AI response text, list of events).
+    """
+    try:
+        client = get_anthropic_client()
+        all_events: list[Event] = []
+
+        # Build messages list
+        messages: list[dict[str, Any]] = []
+        if conversation_history:
+            messages.extend(conversation_history)
+
+        # Add current user message
+        messages.append({"role": "user", "content": message})
+
+        # Agentic loop - keep processing until we get a final response
+        max_iterations = 5
+        for _ in range(max_iterations):
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=4096,
+                system=SYSTEM_PROMPT,
+                tools=TOOLS,
+                messages=messages,
+            )
+
+            # Check if Claude wants to use a tool
+            if response.stop_reason == "tool_use":
+                # Process all tool uses in the response
+                assistant_content = response.content
+                messages.append({"role": "assistant", "content": assistant_content})
+
+                tool_results = []
+                for block in response.content:
+                    if block.type == "tool_use":
+                        tool_result, events = await handle_tool_call(
+                            tool_name=block.name,
+                            tool_input=block.input,
+                            scrape_function=scrape_function,
+                            create_plugin_function=create_plugin_function,
+                        )
+                        all_events.extend(events)
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": tool_result,
+                        })
+
+                # Add tool results to messages
+                messages.append({"role": "user", "content": tool_results})
+
+            else:
+                # Claude is done - extract final text response
+                for block in response.content:
+                    if hasattr(block, "text"):
+                        return block.text, all_events
+
+                return "I couldn't generate a response.", all_events
+
+        logger.warning("Max iterations reached in tool calling loop")
+        return "I encountered an issue processing your request. Please try again.", all_events
+
+    except anthropic.AuthenticationError as e:
+        logger.error(f"Authentication error: {e}")
+        raise ValueError("Invalid ANTHROPIC_API_KEY") from e
+
+    except anthropic.RateLimitError:
+        return "I'm experiencing high demand. Please try again in a moment.", []
+
+    except anthropic.APIError as e:
+        logger.error(f"API error: {e}")
+        return "I encountered an error. Please try again later.", []
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        return f"I encountered an unexpected error: {e}", []
 
 
 async def send_message(
@@ -32,113 +244,45 @@ async def send_message(
     conversation_history: list[MessageDict] | None = None,
     system_prompt: str | None = None,
 ) -> str:
-    """Send a message to Claude and get a response.
+    """Send a simple message to Claude without tools.
 
     Args:
-        message: The user's message to send.
-        conversation_history: Optional list of previous messages in the conversation.
-            Each message should have 'role' ('user' or 'assistant') and 'content' keys.
-        system_prompt: Optional system prompt to guide Claude's behavior.
+        message: The user's message.
+        conversation_history: Optional conversation history.
+        system_prompt: Optional system prompt.
 
     Returns:
         Claude's response text.
-
-    Raises:
-        ValueError: If ANTHROPIC_API_KEY is not set.
-        anthropic.APIError: If the API request fails.
     """
     try:
         client = get_anthropic_client()
 
-        # Build messages list
         messages: list[dict[str, Any]] = []
-
-        # Add conversation history if provided
         if conversation_history:
             for msg in conversation_history:
-                messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"],
-                })
+                messages.append({"role": msg["role"], "content": msg["content"]})
 
-        # Add the current message
-        messages.append({
-            "role": "user",
-            "content": message,
-        })
+        messages.append({"role": "user", "content": message})
 
-        # Build request kwargs
         request_kwargs: dict[str, Any] = {
             "model": "claude-sonnet-4-20250514",
             "max_tokens": 4096,
             "messages": messages,
         }
 
-        # Add system prompt if provided
         if system_prompt:
             request_kwargs["system"] = system_prompt
 
-        # Make the API call
         response = client.messages.create(**request_kwargs)
 
-        # Extract text from response
-        if response.content and len(response.content) > 0:
-            content_block = response.content[0]
-            if hasattr(content_block, "text"):
-                return content_block.text
-            return str(content_block)
+        if response.content:
+            block = response.content[0]
+            if hasattr(block, "text"):
+                return block.text
+            return str(block)
 
-        logger.warning("Empty response from Claude API")
-        return "I apologize, but I couldn't generate a response. Please try again."
-
-    except anthropic.AuthenticationError as e:
-        logger.error(f"Authentication error with Claude API: {e}")
-        raise ValueError("Invalid ANTHROPIC_API_KEY. Please check your API key.") from e
-
-    except anthropic.RateLimitError as e:
-        logger.error(f"Rate limit exceeded for Claude API: {e}")
-        return "I'm currently experiencing high demand. Please try again in a moment."
-
-    except anthropic.APIStatusError as e:
-        logger.error(f"Claude API status error: {e}")
-        return f"I encountered an error communicating with the AI service. Please try again later."
-
-    except anthropic.APIError as e:
-        logger.error(f"Claude API error: {e}")
-        return "I encountered an unexpected error. Please try again later."
+        return "I couldn't generate a response."
 
     except Exception as e:
-        logger.error(f"Unexpected error in send_message: {e}")
-        return "I encountered an unexpected error. Please try again later."
-
-
-async def chat_with_context(
-    message: str,
-    conversation_history: list[MessageDict] | None = None,
-    context: str | None = None,
-) -> str:
-    """Send a chat message with optional context (like event data).
-
-    This is a convenience wrapper around send_message that formats
-    context appropriately for the AI.
-
-    Args:
-        message: The user's message to send.
-        conversation_history: Optional list of previous messages.
-        context: Optional context to include (e.g., event data).
-
-    Returns:
-        Claude's response text.
-    """
-    system_prompt = """You are a helpful assistant for EventFinder, an application that helps users discover events.
-You help users find events that match their interests and can provide recommendations based on available event data.
-Be concise, friendly, and helpful in your responses."""
-
-    if context:
-        system_prompt += f"\n\nHere is relevant context for this conversation:\n{context}"
-
-    return await send_message(
-        message=message,
-        conversation_history=conversation_history,
-        system_prompt=system_prompt,
-    )
+        logger.error(f"Error in send_message: {e}")
+        return f"I encountered an error: {e}"
