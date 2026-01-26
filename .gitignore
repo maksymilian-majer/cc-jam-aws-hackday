@@ -67,3 +67,9 @@ Thumbs.db
 
 # Ralph agent state
 scripts/ralph/.last-branch
+
+# Node.js / Frontend
+node_modules/
+.vite/
+dist/
+*.local
