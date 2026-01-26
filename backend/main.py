@@ -1,5 +1,7 @@
 """FastAPI backend for EventFinder application."""
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRouter
@@ -8,11 +10,22 @@ from backend.models import ChatRequest, ChatResponse
 from backend.services.chat import process_chat_message
 from backend.services.plugin_loader import get_plugin_info, load_all_plugins
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown events."""
+    # Startup: Load plugins
+    load_all_plugins()
+    yield
+    # Shutdown: (nothing to clean up)
+
+
 # Create the main FastAPI app
 app = FastAPI(
     title="EventFinder API",
     description="AI-powered event discovery with plugin-based scrapers",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Configure CORS for Vite dev server
@@ -62,13 +75,6 @@ async def chat(request: ChatRequest) -> ChatResponse:
         response=result["response"],
         conversation_id=result["conversation_id"],
     )
-
-
-# Load plugins on startup
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Load plugins when the application starts."""
-    load_all_plugins()
 
 
 # Include the API router
