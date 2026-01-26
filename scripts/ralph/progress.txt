@@ -4,6 +4,37 @@ Branch: ralph/event-finder
 ---
 
 ## Codebase Patterns
-(Add reusable patterns discovered during implementation here)
+- Run backend with: `python3 -m uvicorn backend.main:app --reload`
+- Run mypy typecheck with: `python3 -m mypy backend/ --ignore-missing-imports`
+- FastAPI app uses APIRouter with `/api` prefix for all endpoints
+- Run frontend with: `cd frontend && npm run dev`
+- Run frontend typecheck with: `cd frontend && npx tsc --noEmit`
+- Frontend uses Tailwind CSS v4 via @tailwindcss/vite plugin (import with `@import "tailwindcss"`)
+- Frontend proxy configured: `/api` routes to backend at localhost:8000
 
+---
+
+## 2026-01-26 - US-001
+- Implemented FastAPI backend scaffolding
+- Files changed:
+  - backend/main.py - FastAPI app with CORS and health endpoint
+  - backend/requirements.txt - Dependencies (fastapi, uvicorn, pydantic, anthropic, crawl4ai)
+- **Learnings for future iterations:**
+  - Use `python3 -m uvicorn` rather than just `uvicorn` if uvicorn is not on PATH
+  - FastAPI app is configured with CORS for localhost:5173 (Vite default)
+  - Health check at GET /api/health returns {"status": "ok"}
+---
+
+## 2026-01-26 - US-002
+- Set up React frontend with Vite and TypeScript
+- Files changed:
+  - frontend/ - New Vite + React + TypeScript project
+  - frontend/vite.config.ts - Added Tailwind CSS plugin and proxy to backend
+  - frontend/src/index.css - Tailwind CSS import
+  - frontend/src/App.tsx - Basic placeholder with Tailwind styling
+- **Learnings for future iterations:**
+  - Tailwind CSS v4 uses `@import "tailwindcss"` in CSS (no directives like @tailwind base)
+  - Use @tailwindcss/vite plugin for Vite integration (not postcss config)
+  - Vite proxy config at `server.proxy` maps `/api` to backend localhost:8000
+  - TypeScript build command: `tsc -b && vite build` (runs typecheck then build)
 ---
