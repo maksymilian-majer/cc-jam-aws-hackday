@@ -144,6 +144,10 @@ class [Name]Plugin(ScraperPlugin):
     source_url = "[url]"
     description = "Scrapes events from [domain]"
 
+    # Enable scrolling for infinite scroll pages (loads more events)
+    scroll_for_more = True  # Set to True if page uses infinite scroll
+    scroll_count = 5  # Number of scroll iterations
+
     async def scrape(self, query: str | None = None) -> list[Event]:
         try:
             url = self.get_scrape_url(query)

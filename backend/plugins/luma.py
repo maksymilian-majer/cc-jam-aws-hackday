@@ -18,6 +18,10 @@ class LumaPlugin(ScraperPlugin):
     source_url = "https://lu.ma/sf"
     description = "Scrapes events from Luma SF Bay Area events page"
 
+    # Enable scrolling to load more events (infinite scroll)
+    scroll_for_more = True
+    scroll_count = 5
+
     async def scrape(self, query: str | None = None) -> list[Event]:
         """Scrape events from Luma SF page.
 
