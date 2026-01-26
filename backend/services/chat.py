@@ -134,7 +134,7 @@ def format_events_for_context(events: list[Event]) -> str:
 async def search_and_recommend_events(
     user_message: str,
     conversation_history: list[MessageDict] | None = None,
-) -> str:
+) -> tuple[str, list[Event]]:
     """Search for events and get AI recommendations based on user interests.
 
     Args:
@@ -142,13 +142,16 @@ async def search_and_recommend_events(
         conversation_history: Optional conversation history for context.
 
     Returns:
-        AI response with ranked and recommended events.
+        Tuple of (AI response with recommendations, list of scraped events).
     """
     # Scrape all plugins concurrently
     events = await scrape_all_plugins()
 
     if not events:
-        return "No matching events found. There are currently no events available from our sources. Please try again later or ask me to create a plugin for a specific event source."
+        return (
+            "No matching events found. There are currently no events available from our sources. Please try again later or ask me to create a plugin for a specific event source.",
+            [],
+        )
 
     # Format events as context
     events_context = format_events_for_context(events)
@@ -160,12 +163,13 @@ You have access to a list of available events. Your job is to:
 1. Understand what the user is looking for based on their message and conversation history
 2. Rank the events by relevance to their interests
 3. Recommend the most relevant events with explanations of why each matches their interests
-4. Include clickable URLs for each recommended event
 
 Format your response clearly with:
 - A brief acknowledgment of what they're looking for
-- Top recommended events (up to 5 most relevant)
-- For each event: title, date/time, location, why it matches their interests, and the URL
+- Commentary on the top recommended events (up to 5 most relevant)
+- For each event: explain why it matches their interests
+
+Note: The event cards with details (title, date, location, link) will be displayed separately below your response, so focus on providing valuable context about why each event is a good match.
 
 If no events match their specific interests, suggest the closest matches or let them know no matching events were found.
 
@@ -180,7 +184,7 @@ Here are the available events:
         system_prompt=system_prompt,
     )
 
-    return response
+    return response, events
 
 
 def is_plugin_creation_request(message: str) -> tuple[bool, str | None]:
@@ -527,6 +531,31 @@ def get_or_create_conversation(conversation_id: str | None) -> tuple[str, list[M
     return new_id, _conversations[new_id]
 
 
+def events_to_response_format(events: list[Event]) -> list[dict[str, Any]]:
+    """Convert Event objects to API response format.
+
+    Args:
+        events: List of Event objects.
+
+    Returns:
+        List of event dictionaries with ISO date strings.
+    """
+    return [
+        {
+            "id": event.id,
+            "title": event.title,
+            "description": event.description,
+            "date": event.date.isoformat(),
+            "time": event.time,
+            "location": event.location,
+            "url": event.url,
+            "source": event.source,
+            "tags": event.tags,
+        }
+        for event in events
+    ]
+
+
 async def process_chat_message(
     message: str,
     conversation_id: str | None = None,
@@ -538,10 +567,12 @@ async def process_chat_message(
         conversation_id: Optional conversation ID for continuing a conversation.
 
     Returns:
-        Dict with 'response' (AI response text) and 'conversation_id'.
+        Dict with 'response' (AI response text), 'conversation_id', and optionally 'events'.
     """
     # Get or create conversation
     conv_id, messages = get_or_create_conversation(conversation_id)
+
+    events: list[Event] = []
 
     # Check if this is a plugin creation request
     is_plugin_request, plugin_url = is_plugin_creation_request(message)
@@ -550,7 +581,7 @@ async def process_chat_message(
         response = await create_plugin_for_url(plugin_url)
     elif is_event_search_request(message):
         # Use event search and recommendation
-        response = await search_and_recommend_events(
+        response, events = await search_and_recommend_events(
             user_message=message,
             conversation_history=messages if messages else None,
         )
@@ -568,6 +599,7 @@ async def process_chat_message(
     return {
         "response": response,
         "conversation_id": conv_id,
+        "events": events_to_response_format(events),
     }
 
 

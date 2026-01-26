@@ -26,8 +26,23 @@ class ChatRequest(BaseModel):
     conversation_id: str | None = None
 
 
+class EventResponse(BaseModel):
+    """Event data model for API responses."""
+
+    id: str
+    title: str
+    description: str | None = None
+    date: str  # ISO format string for JSON serialization
+    time: str | None = None
+    location: str | None = None
+    url: str
+    source: str
+    tags: list[str] = Field(default_factory=list)
+
+
 class ChatResponse(BaseModel):
     """Response model for chat endpoint."""
 
     response: str
     conversation_id: str
+    events: list[EventResponse] = Field(default_factory=list)

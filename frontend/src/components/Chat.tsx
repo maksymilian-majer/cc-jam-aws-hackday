@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
+import EventCard, { EventData } from './EventCard';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  events?: EventData[];
 }
 
 interface ChatResponse {
   response: string;
   conversation_id: string;
+  events?: EventData[];
 }
 
 export default function Chat() {
@@ -71,6 +74,7 @@ export default function Chat() {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: data.response,
+        events: data.events && data.events.length > 0 ? data.events : undefined,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -129,6 +133,14 @@ export default function Chat() {
               }`}
             >
               <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              {/* Event cards rendered inline within the message bubble */}
+              {message.events && message.events.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {message.events.map((event) => (
+                    <EventCard key={event.id} event={event} />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}
