@@ -20,6 +20,9 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r backend/requirements.txt
 
+# Install Playwright browsers (required for web scraping)
+playwright install
+
 # Set your Anthropic API key
 export ANTHROPIC_API_KEY="your-api-key-here"
 
