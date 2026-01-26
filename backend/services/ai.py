@@ -1,6 +1,5 @@
 """Claude AI service with tool calling for event discovery."""
 
-import asyncio
 import json
 import logging
 import os
@@ -9,6 +8,10 @@ from typing import Any
 import anthropic
 
 from backend.models import Event
+from backend.services.mcp_client import (
+    schedule_event_notification,
+    send_immediate_notification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,18 +48,62 @@ TOOLS = [
             "required": ["url"],
         },
     },
+    {
+        "name": "schedule_event_reminder",
+        "description": "Schedule a push notification reminder for an event. Use this when the user wants to be notified or reminded about an event. The notification will be sent to their device at the specified time.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "event_title": {
+                    "type": "string",
+                    "description": "The title of the event to remind about.",
+                },
+                "event_time": {
+                    "type": "string",
+                    "description": "When the event starts (e.g., '2:30 PM PST').",
+                },
+                "delay": {
+                    "type": "string",
+                    "description": "How long from now to send the notification. Format: QStash delay (e.g., '30s' for 30 seconds, '5m' for 5 minutes, '1h' for 1 hour, '1h30m' for 1.5 hours).",
+                },
+            },
+            "required": ["event_title", "event_time", "delay"],
+        },
+    },
+    {
+        "name": "send_notification",
+        "description": "Send an immediate push notification to the user's device. Use this for urgent alerts or when the user wants to test notifications.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": "The notification message body.",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Optional notification title.",
+                },
+            },
+            "required": ["message"],
+        },
+    },
 ]
 
-SYSTEM_PROMPT = """You are Schedule Hacker, an AI assistant that helps users discover events and activities.
+SYSTEM_PROMPT = """You are Schedule Hacker, an AI assistant that helps users discover events and set up reminders.
 
 ## Your Capabilities
 You have access to tools that let you:
 1. **search_events** - Search for events from loaded scraper plugins
 2. **create_plugin** - Create new scraper plugins for event websites
+3. **schedule_event_reminder** - Schedule a push notification for an upcoming event
+4. **send_notification** - Send an immediate push notification
 
 ## When to Use Tools
 - When users ask about events, activities, meetups, hackathons, conferences, parties, or anything happening - use search_events
 - When users want to add a new event source or mention a website URL - use create_plugin
+- When users want to be reminded about an event, get notified, or schedule an alert - use schedule_event_reminder
+- When users want to test notifications or need an immediate alert - use send_notification
 
 ## Response Guidelines
 When presenting events to users, ALWAYS include:
@@ -73,11 +120,19 @@ Great for networking with AI enthusiasts and builders.
 
 IMPORTANT: Use the "day" field from event data for the day name (e.g., "Monday", "Tuesday"). Never calculate or guess the day of week yourself.
 
+## Notification Scheduling
+When scheduling reminders:
+- Calculate the delay based on how far in the future the event is
+- Use delay format like "30s" (seconds), "5m" (minutes), "1h" (hours), or combinations like "1h30m"
+- Confirm to the user when the notification has been scheduled and when they'll receive it
+- If an event starts in 30 seconds, use delay="30s"
+
 ## Important
 - Always use the search_events tool to get real event data - never make up events
 - Include direct links so users can easily click to learn more
 - If no events match, suggest using create_plugin to add new sources
-- Be concise but informative"""
+- Be concise but informative
+- Proactively offer to schedule reminders for events the user is interested in"""
 
 
 def get_anthropic_client() -> anthropic.Anthropic:
@@ -151,6 +206,21 @@ async def handle_tool_call(
         logger.info(f"Tool call: create_plugin(url={url})")
         result = await create_plugin_function(url)
         return json.dumps({"result": result}), []
+
+    elif tool_name == "schedule_event_reminder":
+        event_title = tool_input.get("event_title", "")
+        event_time = tool_input.get("event_time", "")
+        delay = tool_input.get("delay", "")
+        logger.info(f"Tool call: schedule_event_reminder(title={event_title}, delay={delay})")
+        result = await schedule_event_notification(event_title, event_time, delay)
+        return json.dumps(result), []
+
+    elif tool_name == "send_notification":
+        message = tool_input.get("message", "")
+        title = tool_input.get("title")
+        logger.info(f"Tool call: send_notification(message={message[:50]}...)")
+        result = await send_immediate_notification(message, title)
+        return json.dumps(result), []
 
     else:
         logger.warning(f"Unknown tool: {tool_name}")
