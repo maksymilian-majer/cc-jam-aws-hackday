@@ -13,6 +13,9 @@ Branch: ralph/event-finder
 - Frontend proxy configured: `/api` routes to backend at localhost:8000
 - Backend requires `backend/__init__.py` for mypy to resolve module paths correctly
 - Plugin imports use `from backend.models import Event` (full path from project root)
+- Plugin loader: use `reload_plugins()` after adding new plugins to refresh registry
+- Plugin registry access: `get_plugin_registry()` returns dict[name, class], `get_plugin_info()` returns API-friendly list
+- AI service: use `send_message()` for raw Claude calls, `chat_with_context()` for EventFinder-specific chat
 
 ---
 
@@ -64,4 +67,31 @@ Branch: ralph/event-finder
   - Always wrap scrape() in try/except and return empty list on error (log the error)
   - Generate unique event IDs with uuid.uuid4()
   - Luma event links are formatted as [Title](https://lu.ma/...) in markdown output
+---
+
+## 2026-01-26 - US-005
+- Implemented plugin loader system for dynamic plugin discovery and loading
+- Files changed:
+  - backend/services/__init__.py - Created services package
+  - backend/services/plugin_loader.py - Plugin loader with scan, load, reload, and registry functions
+  - backend/main.py - Added /api/plugins endpoint and plugin loading on startup
+- **Learnings for future iterations:**
+  - Use `importlib.util.spec_from_file_location()` for dynamic module imports
+  - Plugin registry is a module-level dict (`_plugin_registry`) for state persistence
+  - `get_plugin_info()` returns list of dicts suitable for API responses
+  - `reload_plugins()` clears registry and reloads all plugins (useful after plugin generation)
+  - Plugins are loaded on app startup via `@app.on_event("startup")` decorator
+---
+
+## 2026-01-26 - US-006
+- Created Claude AI service for chat and recommendations
+- Files changed:
+  - backend/services/ai.py - Claude AI service with send_message and chat_with_context functions
+- **Learnings for future iterations:**
+  - Use `claude-sonnet-4-20250514` model ID for Claude Sonnet
+  - Anthropic SDK: `client.messages.create()` returns response with content blocks
+  - Handle different error types: AuthenticationError, RateLimitError, APIStatusError, APIError
+  - Return user-friendly error messages instead of raising exceptions for recoverable errors
+  - ANTHROPIC_API_KEY must be set in environment before using the service
+  - MessageDict type alias: `dict[str, str]` with "role" and "content" keys for conversation history
 ---
