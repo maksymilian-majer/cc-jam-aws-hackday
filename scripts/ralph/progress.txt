@@ -16,6 +16,11 @@ Branch: ralph/event-finder
 - Plugin loader: use `reload_plugins()` after adding new plugins to refresh registry
 - Plugin registry access: `get_plugin_registry()` returns dict[name, class], `get_plugin_info()` returns API-friendly list
 - AI service: use `send_message()` for raw Claude calls, `chat_with_context()` for EventFinder-specific chat
+- Chat service: use `process_chat_message(message, conversation_id)` for chat with conversation history management
+- Event search: use `scrape_all_plugins()` for concurrent scraping, `is_event_search_request()` for keyword detection
+- Plugin generation: use `is_plugin_creation_request()` to detect "create plugin for [URL]" patterns, `create_plugin_for_url()` to generate and save plugins
+- Chat UI: POST `/api/chat` with `{ message, conversation_id }` returns `{ response, conversation_id }`
+- Frontend components: place in `frontend/src/components/` directory
 
 ---
 
@@ -94,4 +99,60 @@ Branch: ralph/event-finder
   - Return user-friendly error messages instead of raising exceptions for recoverable errors
   - ANTHROPIC_API_KEY must be set in environment before using the service
   - MessageDict type alias: `dict[str, str]` with "role" and "content" keys for conversation history
+---
+
+## 2026-01-26 - US-007
+- Created chat API endpoint with conversation management
+- Files changed:
+  - backend/services/chat.py - Chat service with conversation storage and processing
+  - backend/models.py - Added ChatRequest and ChatResponse Pydantic models
+  - backend/main.py - Added POST /api/chat endpoint
+- **Learnings for future iterations:**
+  - Conversation storage uses module-level dict `_conversations` for in-memory persistence
+  - `process_chat_message()` is the main entry point - handles conversation ID generation and history management
+  - Chat service imports MessageDict from ai.py to ensure type consistency
+  - API returns both response text and conversation_id for frontend to track conversations
+---
+
+## 2026-01-26 - US-008
+- Implemented event search and recommendation functionality
+- Files changed:
+  - backend/services/chat.py - Added event search detection, concurrent plugin scraping, and AI recommendations
+- **Learnings for future iterations:**
+  - `is_event_search_request()` checks for keywords like "find", "search", "events", "hackathons", "meetups", etc.
+  - `scrape_all_plugins()` uses `asyncio.gather()` with `return_exceptions=True` to scrape all plugins concurrently
+  - `format_events_for_context()` formats Event objects as markdown for Claude's context
+  - `search_and_recommend_events()` builds a custom system prompt with event data for AI recommendations
+  - Use `send_message()` with custom system prompt for event-specific queries (not `chat_with_context()`)
+  - Event search triggers automatically based on keyword detection in user messages
+---
+
+## 2026-01-26 - US-009
+- Implemented plugin generation capability for dynamic scraper creation
+- Files changed:
+  - backend/services/chat.py - Added plugin generation detection, URL crawling, code generation with Claude, file saving, and testing
+- **Learnings for future iterations:**
+  - `is_plugin_creation_request()` uses regex patterns to detect "create plugin for [URL]" and similar phrases
+  - `extract_domain_name()` cleans URLs into valid Python filenames (e.g., "lu.ma" -> "lu_ma")
+  - `crawl_url_for_structure()` uses AsyncWebCrawler to get page markdown for analysis
+  - `get_plugin_template()` provides Claude with a detailed template and requirements for generating valid plugins
+  - Generated code must be cleaned (strip markdown code blocks) before saving
+  - `test_generated_plugin()` loads and runs the plugin to verify it works before confirming success
+  - Always call `reload_plugins()` after successfully generating a plugin to make it immediately available
+  - Plugin generation flow: crawl URL -> generate code with Claude -> save to file -> test -> reload registry
+---
+
+## 2026-01-26 - US-010
+- Created chat UI component with full message functionality
+- Files changed:
+  - frontend/src/components/Chat.tsx - New chat component with message input, history, loading states
+  - frontend/src/App.tsx - Integrated Chat component into main app layout
+- **Learnings for future iterations:**
+  - Use `crypto.randomUUID()` for generating unique message IDs in the browser
+  - `useRef` with `scrollIntoView({ behavior: 'smooth' })` provides auto-scroll functionality
+  - Store conversation_id in state to maintain conversation context across messages
+  - API endpoint: POST /api/chat with `{ message, conversation_id }` returns `{ response, conversation_id }`
+  - Tailwind responsive classes: `max-w-[80%] sm:max-w-[70%]` for message bubbles that work on mobile
+  - Loading indicator uses CSS `animate-bounce` with staggered `animationDelay` for typing dots effect
+  - Input disabled state and button disabled state should both check `isLoading`
 ---
