@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from urllib.parse import quote_plus
 
-from crawl4ai import AsyncWebCrawler
+from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 
 from backend.models import Event
 
@@ -51,12 +51,18 @@ class ScraperPlugin(ABC):
     async def crawl(self, url: str) -> str:
         """Crawl a URL and return the markdown content.
 
+        Waits for JavaScript content to load using networkidle.
+
         Args:
             url: The URL to crawl.
 
         Returns:
             Markdown representation of the page content.
         """
+        config = CrawlerRunConfig(
+            wait_until="networkidle",
+            page_timeout=30000,
+        )
         async with AsyncWebCrawler() as crawler:
-            result = await crawler.arun(url=url)
+            result = await crawler.arun(url=url, config=config)
             return result.markdown

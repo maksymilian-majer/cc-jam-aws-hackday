@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, quote_plus
 
-from crawl4ai import AsyncWebCrawler
+from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 
 from backend.models import Event
 from backend.services.ai import chat_with_tools, send_message
@@ -75,9 +75,16 @@ def extract_domain_name(url: str) -> str:
 
 
 async def crawl_url_for_structure(url: str) -> str:
-    """Crawl a URL to get its page structure for plugin generation."""
+    """Crawl a URL to get its page structure for plugin generation.
+
+    Uses networkidle to wait for JavaScript content to load.
+    """
+    config = CrawlerRunConfig(
+        wait_until="networkidle",
+        page_timeout=30000,
+    )
     async with AsyncWebCrawler() as crawler:
-        result = await crawler.arun(url=url)
+        result = await crawler.arun(url=url, config=config)
         return result.markdown
 
 
@@ -85,7 +92,36 @@ def get_plugin_template() -> str:
     """Get the plugin template with instructions for Claude."""
     return '''You are generating a Python scraper plugin for EventFinder.
 
-The plugin MUST follow this exact interface:
+The markdown content you receive is from a web crawler that converts HTML to markdown.
+Events typically appear in patterns like:
+
+COMMON PATTERN 1 - Date header followed by linked title:
+```
+Jan30
+### [Event Title](https://example.com/event-url)
+Fri · 5:00 PM – 9:00 PM PST
+Location Name, City
+Description text...
+```
+
+COMMON PATTERN 2 - Linked title with metadata on following lines:
+```
+### [Event Title](url)
+Date: January 30, 2025
+Time: 5:00 PM
+Location: San Francisco, CA
+```
+
+COMMON PATTERN 3 - Empty link followed by title heading (lu.ma style):
+```
+[ ](https://lu.ma/eventid)
+### Event Title
+5:00 PM
+By Organizer
+Location Name
+```
+
+The plugin MUST follow this interface:
 
 ```python
 """[Domain] event scraper plugin."""
@@ -108,20 +144,7 @@ class [Name]Plugin(ScraperPlugin):
     source_url = "[url]"
     description = "Scrapes events from [domain]"
 
-    # If the site supports search, set these:
-    # search_url_template = "[url_with_{query}_placeholder]"
-    # supports_search = True
-
     async def scrape(self, query: str | None = None) -> list[Event]:
-        """Scrape events from the source.
-
-        Args:
-            query: Optional search query to filter events.
-
-        Returns:
-            List of Event objects scraped from the source.
-            Returns empty list on error.
-        """
         try:
             url = self.get_scrape_url(query)
             markdown = await self.crawl(url)
@@ -131,29 +154,84 @@ class [Name]Plugin(ScraperPlugin):
             return []
 
     def _parse_events(self, markdown: str) -> list[Event]:
-        """Parse event data from markdown content."""
+        """Parse events from markdown. IMPLEMENT BASED ON ACTUAL PAGE STRUCTURE."""
         events: list[Event] = []
-        # Implement parsing logic based on page structure
+        lines = markdown.split('\\n')
+
+        # EXAMPLE: Look for ### [Title](url) pattern
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+
+            # Match event title links: ### [Title](url) or [Title](url)
+            title_match = re.search(r'###?\\s*\\[([^\\]]+)\\]\\(([^)]+)\\)', line)
+            if title_match:
+                title = title_match.group(1).strip()
+                url = title_match.group(2).strip()
+
+                # Skip navigation/filter links
+                if any(skip in title.lower() for skip in ['sign in', 'search', 'submit', 'all events']):
+                    i += 1
+                    continue
+
+                # Make URL absolute if needed
+                if not url.startswith('http'):
+                    url = f"https://DOMAIN{url}"
+
+                # Look ahead for date, time, location in next few lines
+                date_str = None
+                time_str = None
+                location = None
+                description = None
+
+                for j in range(i + 1, min(i + 6, len(lines))):
+                    next_line = lines[j].strip()
+                    if not next_line:
+                        continue
+
+                    # Check for time pattern: "5:00 PM" or "Fri · 5:00 PM – 9:00 PM"
+                    time_match = re.search(r'(\\d{1,2}:\\d{2}\\s*(?:AM|PM)(?:\\s*[–-]\\s*\\d{1,2}:\\d{2}\\s*(?:AM|PM))?(?:\\s+[A-Z]{2,4})?)', next_line, re.IGNORECASE)
+                    if time_match and not time_str:
+                        time_str = time_match.group(1)
+
+                    # Check for date pattern at start of line: "Jan30" or "January 30"
+                    date_match = re.match(r'^((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\s*\\d{1,2})', next_line, re.IGNORECASE)
+                    if date_match and not date_str:
+                        date_str = date_match.group(1)
+
+                    # Location often contains comma (City, State)
+                    if ',' in next_line and len(next_line) < 100 and not location:
+                        if not any(skip in next_line.lower() for skip in ['http', 'see more', '@']):
+                            location = next_line
+
+                    # Description is usually longer text
+                    if len(next_line) > 80 and not description:
+                        description = next_line[:200]
+
+                event = self._create_event(title, url, date_str, time_str, location, description)
+                events.append(event)
+
+            i += 1
+
         return events
 
     def _create_event(self, title: str, url: str, date_str: str | None = None,
                       time_str: str | None = None, location: str | None = None,
                       description: str | None = None) -> Event:
-        """Create an Event object from parsed data."""
         event_date = datetime.now()
         if date_str:
-            try:
-                for fmt in ["%b %d", "%B %d", "%Y-%m-%d", "%m/%d/%Y"]:
-                    try:
-                        parsed = datetime.strptime(date_str.strip(), fmt)
-                        if parsed.year == 1900:
-                            parsed = parsed.replace(year=datetime.now().year)
-                        event_date = parsed
-                        break
-                    except ValueError:
-                        continue
-            except Exception:
-                pass
+            # Clean date string
+            date_clean = re.sub(r'[^a-zA-Z0-9\\s]', ' ', date_str).strip()
+            for fmt in ["%b %d", "%B %d", "%b%d", "%B%d"]:
+                try:
+                    parsed = datetime.strptime(date_clean, fmt)
+                    parsed = parsed.replace(year=datetime.now().year)
+                    if parsed < datetime.now():
+                        parsed = parsed.replace(year=datetime.now().year + 1)
+                    event_date = parsed
+                    break
+                except ValueError:
+                    continue
 
         return Event(
             id=str(uuid.uuid4()),
@@ -168,16 +246,14 @@ class [Name]Plugin(ScraperPlugin):
         )
 ```
 
-IMPORTANT REQUIREMENTS:
-1. The class MUST inherit from ScraperPlugin
-2. The class MUST have name, source_url, and description class attributes
-3. The scrape() method MUST be async, accept optional query parameter, and return list[Event]
-4. If the site supports search, set search_url_template with {query} placeholder and supports_search = True
-5. Use self.get_scrape_url(query) to get the URL (handles search URLs automatically)
-6. Always use try/except in scrape() and return empty list on error
-7. Use uuid.uuid4() for event IDs
+CRITICAL REQUIREMENTS:
+1. ACTUALLY PARSE THE EVENTS from the markdown - don't just return empty list
+2. Look at the page structure provided and identify the pattern used for events
+3. Extract: title, URL, date, time, location from the markdown
+4. Skip navigation links, filters, and non-event content
+5. Make URLs absolute (prepend domain if they start with /)
+6. The scrape() method MUST be async and return list[Event]
 
-Analyze the page structure provided and implement appropriate parsing logic.
 Return ONLY the Python code, no explanations or markdown code blocks.
 '''
 
