@@ -1,16 +1,61 @@
+/* Import fonts first */
+/* Satoshi for glassmorphism */
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap');
+/* Bebas Neue for brutalist Kill Bill style - huge impactful headers */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap');
+
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* Import Satoshi font - a characterful modern sans-serif */
-@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap');
+/* ============================================
+   BRUTALIST KILL BILL THEME (Default)
+   ============================================ */
+:root,
+[data-theme="brutalist"] {
+  /* Kill Bill palette */
+  --kb-yellow: #FFD700;
+  --kb-yellow-bright: #FFEA00;
+  --kb-black: #000000;
+  --kb-white: #FFFFFF;
+  --kb-red: #8B0000;
+  --kb-red-bright: #DC143C;
 
-:root {
-  /* Core palette - aurora-inspired */
+  /* Semantic colors */
+  --bg-primary: var(--kb-yellow);
+  --bg-secondary: var(--kb-black);
+  --bg-card: var(--kb-white);
+  --bg-input: var(--kb-white);
+
+  --text-primary: var(--kb-black);
+  --text-secondary: #333333;
+  --text-muted: #666666;
+  --text-inverse: var(--kb-yellow);
+
+  --border-primary: var(--kb-black);
+  --border-width: 4px;
+
+  --accent-primary: var(--kb-red-bright);
+  --accent-secondary: var(--kb-black);
+
+  /* Typography */
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'Space Mono', monospace;
+
+  /* Shadows - harsh, no blur */
+  --shadow-brutal: 8px 8px 0px var(--kb-black);
+  --shadow-brutal-sm: 4px 4px 0px var(--kb-black);
+  --shadow-brutal-hover: 12px 12px 0px var(--kb-black);
+}
+
+/* ============================================
+   GLASSMORPHISM THEME
+   ============================================ */
+[data-theme="glass"] {
+  /* Aurora palette */
   --gradient-start: #0f0c29;
   --gradient-mid: #302b63;
   --gradient-end: #24243e;
 
-  /* Accent colors */
   --accent-violet: #8b5cf6;
   --accent-cyan: #06b6d4;
   --accent-pink: #ec4899;
@@ -22,32 +67,258 @@
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   --glass-blur: 16px;
 
-  /* Text colors */
+  /* Semantic colors */
+  --bg-primary: var(--gradient-start);
+  --bg-secondary: var(--gradient-mid);
   --text-primary: rgba(255, 255, 255, 0.95);
   --text-secondary: rgba(255, 255, 255, 0.7);
   --text-muted: rgba(255, 255, 255, 0.5);
+
+  --border-primary: var(--glass-border);
+  --border-width: 1px;
+
+  --accent-primary: var(--accent-violet);
+  --accent-secondary: var(--accent-cyan);
+
+  /* Typography */
+  --font-display: 'Satoshi', sans-serif;
+  --font-body: 'Satoshi', sans-serif;
 }
 
+/* ============================================
+   BASE STYLES
+   ============================================ */
 * {
-  font-family: 'Satoshi', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
-body {
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: var(--font-display);
+}
+
+/* ============================================
+   BRUTALIST THEME STYLES
+   ============================================ */
+[data-theme="brutalist"] body {
+  background: var(--kb-yellow);
+  min-height: 100vh;
+}
+
+[data-theme="brutalist"] .theme-bg {
+  background: var(--kb-yellow);
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+}
+
+/* Diagonal stripes pattern - signature detail */
+[data-theme="brutalist"] .theme-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 20px,
+    rgba(0, 0, 0, 0.03) 20px,
+    rgba(0, 0, 0, 0.03) 40px
+  );
+}
+
+/* Brutal card */
+[data-theme="brutalist"] .theme-card {
+  background: var(--kb-white);
+  border: var(--border-width) solid var(--kb-black);
+  box-shadow: var(--shadow-brutal);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+[data-theme="brutalist"] .theme-card:hover {
+  transform: translate(-4px, -4px);
+  box-shadow: var(--shadow-brutal-hover);
+}
+
+[data-theme="brutalist"] .theme-card-dark {
+  background: var(--kb-black);
+  border: var(--border-width) solid var(--kb-black);
+  box-shadow: var(--shadow-brutal);
+  color: var(--kb-yellow);
+}
+
+/* Brutal input */
+[data-theme="brutalist"] .theme-input {
+  background: var(--kb-white);
+  border: 3px solid var(--kb-black);
+  color: var(--kb-black);
+  font-family: var(--font-body);
+  transition: box-shadow 0.1s ease;
+}
+
+[data-theme="brutalist"] .theme-input::placeholder {
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+[data-theme="brutalist"] .theme-input:focus {
+  outline: none;
+  box-shadow: var(--shadow-brutal-sm);
+}
+
+/* Brutal button */
+[data-theme="brutalist"] .theme-button {
+  background: var(--kb-black);
+  color: var(--kb-yellow);
+  border: 3px solid var(--kb-black);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-brutal-sm);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+[data-theme="brutalist"] .theme-button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--kb-black);
+}
+
+[data-theme="brutalist"] .theme-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px var(--kb-black);
+}
+
+[data-theme="brutalist"] .theme-button:disabled {
+  background: #ccc;
+  color: #666;
+  box-shadow: none;
+  transform: none;
+}
+
+[data-theme="brutalist"] .theme-button-secondary {
+  background: var(--kb-white);
+  color: var(--kb-black);
+  border: 3px solid var(--kb-black);
+}
+
+[data-theme="brutalist"] .theme-button-danger {
+  background: var(--kb-red-bright);
+  color: var(--kb-white);
+}
+
+/* Brutal message bubbles */
+[data-theme="brutalist"] .theme-message-user {
+  background: var(--kb-black);
+  color: var(--kb-yellow);
+  border: 3px solid var(--kb-black);
+}
+
+[data-theme="brutalist"] .theme-message-assistant {
+  background: var(--kb-white);
+  color: var(--kb-black);
+  border: 3px solid var(--kb-black);
+  box-shadow: var(--shadow-brutal-sm);
+}
+
+/* Brutal prose */
+[data-theme="brutalist"] .theme-prose {
+  color: var(--kb-black);
+}
+
+[data-theme="brutalist"] .theme-prose strong {
+  color: var(--kb-black);
+  font-weight: 700;
+}
+
+[data-theme="brutalist"] .theme-prose a {
+  color: var(--kb-red-bright);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+/* Brutal event card */
+[data-theme="brutalist"] .theme-event-card {
+  background: var(--kb-white);
+  border: 3px solid var(--kb-black);
+  box-shadow: var(--shadow-brutal-sm);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+[data-theme="brutalist"] .theme-event-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--kb-black);
+}
+
+/* Brutal modal */
+[data-theme="brutalist"] .theme-modal-backdrop {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="brutalist"] .theme-modal {
+  background: var(--kb-yellow);
+  border: 4px solid var(--kb-black);
+  box-shadow: 12px 12px 0px var(--kb-black);
+}
+
+/* Brutal scrollbar */
+[data-theme="brutalist"] ::-webkit-scrollbar {
+  width: 12px;
+}
+
+[data-theme="brutalist"] ::-webkit-scrollbar-track {
+  background: var(--kb-yellow);
+  border-left: 3px solid var(--kb-black);
+}
+
+[data-theme="brutalist"] ::-webkit-scrollbar-thumb {
+  background: var(--kb-black);
+}
+
+/* Brutal text colors */
+[data-theme="brutalist"] .theme-text-primary {
+  color: var(--kb-black);
+}
+
+[data-theme="brutalist"] .theme-text-secondary {
+  color: #333;
+}
+
+[data-theme="brutalist"] .theme-text-muted {
+  color: #666;
+}
+
+[data-theme="brutalist"] .theme-text-accent {
+  color: var(--kb-red-bright);
+}
+
+[data-theme="brutalist"] .theme-text-inverse {
+  color: var(--kb-yellow);
+}
+
+/* Focus for brutalist */
+[data-theme="brutalist"] *:focus-visible {
+  outline: 4px solid var(--kb-black);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   GLASSMORPHISM THEME STYLES
+   ============================================ */
+[data-theme="glass"] body {
   background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-mid) 50%, var(--gradient-end) 100%);
   min-height: 100vh;
   overflow-x: hidden;
 }
 
-/* Animated aurora background */
-.aurora-bg {
+[data-theme="glass"] .theme-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   overflow: hidden;
 }
 
-.aurora-bg::before,
-.aurora-bg::after {
+[data-theme="glass"] .theme-bg::before,
+[data-theme="glass"] .theme-bg::after {
   content: '';
   position: absolute;
   width: 150%;
@@ -56,13 +327,13 @@ body {
   animation: aurora 20s ease-in-out infinite;
 }
 
-.aurora-bg::before {
+[data-theme="glass"] .theme-bg::before {
   top: -50%;
   left: -25%;
   animation-delay: -5s;
 }
 
-.aurora-bg::after {
+[data-theme="glass"] .theme-bg::after {
   bottom: -50%;
   right: -25%;
   background: radial-gradient(ellipse at center, rgba(6, 182, 212, 0.12) 0%, transparent 50%);
@@ -70,22 +341,14 @@ body {
 }
 
 @keyframes aurora {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg) scale(1);
-  }
-  25% {
-    transform: translate(5%, 5%) rotate(5deg) scale(1.05);
-  }
-  50% {
-    transform: translate(-5%, 10%) rotate(-5deg) scale(0.95);
-  }
-  75% {
-    transform: translate(10%, -5%) rotate(3deg) scale(1.02);
-  }
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  25% { transform: translate(5%, 5%) rotate(5deg) scale(1.05); }
+  50% { transform: translate(-5%, 10%) rotate(-5deg) scale(0.95); }
+  75% { transform: translate(10%, -5%) rotate(3deg) scale(1.02); }
 }
 
-/* Glassmorphism card base */
-.glass-card {
+/* Glass card */
+[data-theme="glass"] .theme-card {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -93,12 +356,11 @@ body {
   box-shadow: var(--glass-shadow);
 }
 
-/* Glass card with glow effect */
-.glass-card-glow {
+[data-theme="glass"] .theme-card-glow {
   position: relative;
 }
 
-.glass-card-glow::before {
+[data-theme="glass"] .theme-card-glow::before {
   content: '';
   position: absolute;
   inset: -1px;
@@ -114,31 +376,31 @@ body {
   pointer-events: none;
 }
 
-.glass-card-glow:hover::before {
+[data-theme="glass"] .theme-card-glow:hover::before {
   opacity: 1;
 }
 
-/* Glass input styling */
-.glass-input {
+/* Glass input */
+[data-theme="glass"] .theme-input {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
   transition: all 0.3s ease;
 }
 
-.glass-input::placeholder {
+[data-theme="glass"] .theme-input::placeholder {
   color: var(--text-muted);
 }
 
-.glass-input:focus {
+[data-theme="glass"] .theme-input:focus {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--accent-violet);
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
   outline: none;
 }
 
-/* Glass button styling */
-.glass-button {
+/* Glass button */
+[data-theme="glass"] .theme-button {
   background: linear-gradient(135deg, var(--accent-violet), var(--accent-cyan));
   border: none;
   color: white;
@@ -148,7 +410,7 @@ body {
   overflow: hidden;
 }
 
-.glass-button::before {
+[data-theme="glass"] .theme-button::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -157,20 +419,20 @@ body {
   transition: opacity 0.3s ease;
 }
 
-.glass-button:hover::before {
+[data-theme="glass"] .theme-button:hover::before {
   opacity: 1;
 }
 
-.glass-button:hover {
+[data-theme="glass"] .theme-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
 }
 
-.glass-button:active {
+[data-theme="glass"] .theme-button:active {
   transform: translateY(0);
 }
 
-.glass-button:disabled {
+[data-theme="glass"] .theme-button:disabled {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-muted);
   cursor: not-allowed;
@@ -178,106 +440,135 @@ body {
   box-shadow: none;
 }
 
-.glass-button:disabled::before {
-  display: none;
-}
-
-/* Secondary glass button */
-.glass-button-secondary {
+[data-theme="glass"] .theme-button-secondary {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: var(--text-primary);
   font-weight: 500;
-  transition: all 0.3s ease;
 }
 
-.glass-button-secondary:hover {
+[data-theme="glass"] .theme-button-secondary:hover {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.25);
 }
 
-/* Message bubbles */
-.message-user {
+/* Glass message bubbles */
+[data-theme="glass"] .theme-message-user {
   background: linear-gradient(135deg, var(--accent-violet), var(--accent-pink));
   color: white;
 }
 
-.message-assistant {
+[data-theme="glass"] .theme-message-assistant {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
 }
 
-/* Prose styling for markdown in dark mode */
-.prose-glass {
+/* Glass prose */
+[data-theme="glass"] .theme-prose {
   --tw-prose-body: var(--text-primary);
   --tw-prose-headings: var(--text-primary);
   --tw-prose-bold: var(--text-primary);
   --tw-prose-links: var(--accent-cyan);
-  --tw-prose-code: var(--accent-pink);
-}
-
-.prose-glass :where(strong):not(:where([class~="not-prose"] *)) {
   color: var(--text-primary);
-  font-weight: 700;
 }
 
-.prose-glass :where(a):not(:where([class~="not-prose"] *)) {
+[data-theme="glass"] .theme-prose strong {
+  color: var(--text-primary);
+}
+
+[data-theme="glass"] .theme-prose a {
   color: var(--accent-cyan);
-  text-decoration: underline;
-  text-decoration-color: rgba(6, 182, 212, 0.3);
-  transition: all 0.2s ease;
 }
 
-.prose-glass :where(a):not(:where([class~="not-prose"] *)):hover {
-  text-decoration-color: var(--accent-cyan);
-}
-
-/* Event card glass styling */
-.event-card-glass {
+/* Glass event card */
+[data-theme="glass"] .theme-event-card {
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
 }
 
-.event-card-glass:hover {
+[data-theme="glass"] .theme-event-card:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(139, 92, 246, 0.3);
   transform: translateY(-2px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
+/* Glass modal */
+[data-theme="glass"] .theme-modal-backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="glass"] .theme-modal {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+
+/* Glass scrollbar */
+[data-theme="glass"] ::-webkit-scrollbar {
   width: 8px;
 }
 
-::-webkit-scrollbar-track {
+[data-theme="glass"] ::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb {
+[data-theme="glass"] ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+[data-theme="glass"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
 }
 
-/* Loading dots animation */
+/* Glass text colors */
+[data-theme="glass"] .theme-text-primary {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="glass"] .theme-text-secondary {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="glass"] .theme-text-muted {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="glass"] .theme-text-accent {
+  color: var(--accent-cyan);
+}
+
+/* Glass focus */
+[data-theme="glass"] *:focus-visible {
+  outline: 2px solid var(--accent-violet);
+  outline-offset: 2px;
+}
+
+/* Grain overlay - both themes */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+[data-theme="brutalist"] .grain-overlay {
+  opacity: 0.08;
+}
+
+/* Loading animation */
 @keyframes pulse-dot {
-  0%, 80%, 100% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  40% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40% { transform: scale(1.2); opacity: 1; }
 }
 
 .loading-dot {
@@ -288,32 +579,10 @@ body {
 .loading-dot:nth-child(2) { animation-delay: 0.2s; }
 .loading-dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* Grain texture overlay for premium feel */
-.grain-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 9999;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-}
-
-/* Modal backdrop */
-.modal-backdrop {
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-}
-
-/* Focus ring for accessibility */
-*:focus-visible {
-  outline: 2px solid var(--accent-violet);
-  outline-offset: 2px;
-}
-
-/* Reduced motion support */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .aurora-bg::before,
-  .aurora-bg::after {
+  [data-theme="glass"] .theme-bg::before,
+  [data-theme="glass"] .theme-bg::after {
     animation: none;
   }
 

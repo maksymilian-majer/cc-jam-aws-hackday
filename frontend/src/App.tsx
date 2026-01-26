@@ -1,12 +1,16 @@
-import { Calendar, Sparkles } from 'lucide-react';
+import { Calendar, Zap } from 'lucide-react';
+import { useTheme } from './context/ThemeContext';
 import Chat from './components/Chat';
 import PluginPanel from './components/PluginPanel';
+import ThemeToggle from './components/ThemeToggle';
 
 function App() {
+  const { theme } = useTheme();
+
   return (
     <div className="min-h-screen relative">
-      {/* Animated aurora background */}
-      <div className="aurora-bg" />
+      {/* Theme background */}
+      <div className="theme-bg" />
 
       {/* Grain texture overlay */}
       <div className="grain-overlay" />
@@ -17,24 +21,46 @@ function App() {
         <header className="max-w-7xl mx-auto mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl glass-card flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-violet-400" />
+              <div className={`w-12 h-12 flex items-center justify-center ${
+                theme === 'brutalist'
+                  ? 'bg-black border-4 border-black'
+                  : 'rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20'
+              }`}>
+                {theme === 'brutalist' ? (
+                  <Zap className="w-6 h-6 text-yellow-400" />
+                ) : (
+                  <Calendar className="w-6 h-6 text-violet-400" />
+                )}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                <h1 className={`text-2xl tracking-tight flex items-center gap-2 ${
+                  theme === 'brutalist'
+                    ? 'font-display text-4xl text-black uppercase tracking-wider'
+                    : 'font-bold text-white'
+                }`}>
                   Schedule Hacker
-                  <Sparkles className="w-5 h-5 text-cyan-400" />
                 </h1>
-                <p className="text-sm text-white/50">
-                  AI-powered event discovery
+                <p className={`text-sm ${
+                  theme === 'brutalist'
+                    ? 'text-black/70 uppercase tracking-wide font-mono'
+                    : 'text-white/50'
+                }`}>
+                  {theme === 'brutalist' ? 'FIND EVENTS. GET BUSY.' : 'AI-powered event discovery'}
                 </p>
               </div>
             </div>
 
-            {/* Mobile plugin toggle - could add state management here */}
-            <button className="lg:hidden glass-button-secondary px-4 py-2 rounded-xl text-sm">
-              Plugins
-            </button>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              {/* Mobile plugin toggle */}
+              <button className={`lg:hidden px-4 py-2 text-sm ${
+                theme === 'brutalist'
+                  ? 'theme-button-secondary'
+                  : 'theme-button-secondary rounded-xl'
+              }`}>
+                Plugins
+              </button>
+            </div>
           </div>
         </header>
 
