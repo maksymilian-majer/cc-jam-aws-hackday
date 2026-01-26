@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
+import ReactMarkdown from 'react-markdown';
 import EventCard from './EventCard';
 import type { EventData } from './EventCard';
 
@@ -134,7 +135,13 @@ export default function Chat() {
                   : 'bg-gray-100 text-gray-900 rounded-bl-none'
               }`}
             >
-              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              {message.role === 'user' ? (
+                <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              ) : (
+                <div className="prose prose-sm max-w-none prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-li:my-0.5">
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                </div>
+              )}
               {/* Event cards rendered inline within the message bubble */}
               {message.events && message.events.length > 0 && (
                 <div className="mt-3 space-y-2">
