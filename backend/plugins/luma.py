@@ -18,8 +18,11 @@ class LumaPlugin(ScraperPlugin):
     source_url = "https://lu.ma/sf"
     description = "Scrapes events from Luma SF Bay Area events page"
 
-    async def scrape(self) -> list[Event]:
+    async def scrape(self, query: str | None = None) -> list[Event]:
         """Scrape events from Luma SF page.
+
+        Args:
+            query: Optional search query (not currently used for Luma).
 
         Returns:
             List of Event objects scraped from lu.ma/sf.

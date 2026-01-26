@@ -29,10 +29,15 @@ _conversations: dict[str, list[MessageDict]] = {}
 EVENT_SEARCH_KEYWORDS = [
     "find",
     "search",
+    "event",
     "events",
+    "hackathon",
     "hackathons",
+    "meetup",
     "meetups",
+    "conference",
     "conferences",
+    "workshop",
     "workshops",
     "looking for",
     "show me",
@@ -40,6 +45,9 @@ EVENT_SEARCH_KEYWORDS = [
     "happening",
     "recommend",
     "suggestions",
+    "is there",
+    "are there",
+    "any",
 ]
 
 # Patterns that indicate user wants to create a plugin
@@ -67,8 +75,11 @@ def is_event_search_request(message: str) -> bool:
     return any(keyword in message_lower for keyword in EVENT_SEARCH_KEYWORDS)
 
 
-async def scrape_all_plugins() -> list[Event]:
+async def scrape_all_plugins(query: str | None = None) -> list[Event]:
     """Scrape events from all loaded plugins concurrently.
+
+    Args:
+        query: Optional search query to pass to plugins that support searching.
 
     Returns:
         Combined list of events from all plugins.
@@ -82,7 +93,11 @@ async def scrape_all_plugins() -> list[Event]:
     scrape_tasks = []
     for plugin_class in registry.values():
         plugin_instance = plugin_class()
-        scrape_tasks.append(plugin_instance.scrape())
+        # Pass query to plugins that support searching
+        if plugin_instance.supports_search and query:
+            scrape_tasks.append(plugin_instance.scrape(query=query))
+        else:
+            scrape_tasks.append(plugin_instance.scrape())
 
     # Run all scrapes concurrently
     results = await asyncio.gather(*scrape_tasks, return_exceptions=True)
@@ -131,6 +146,43 @@ def format_events_for_context(events: list[Event]) -> str:
     return f"Available events ({len(events)} total):\n\n" + "\n\n".join(event_descriptions)
 
 
+def extract_search_query(message: str) -> str | None:
+    """Extract a search query from the user's message.
+
+    Args:
+        message: The user's message.
+
+    Returns:
+        Extracted search query or None.
+    """
+    # Remove common filler words and extract the core search terms
+    message_lower = message.lower()
+
+    # Remove question prefixes
+    for prefix in [
+        "is there", "are there", "can you find", "find me", "search for",
+        "show me", "looking for", "i want", "i need", "any",
+    ]:
+        if message_lower.startswith(prefix):
+            message_lower = message_lower[len(prefix):].strip()
+            break
+
+    # Remove common suffixes
+    for suffix in ["in sf", "in san francisco", "near me", "today", "this weekend"]:
+        if message_lower.endswith(suffix):
+            message_lower = message_lower[:-len(suffix)].strip()
+
+    # Remove articles and prepositions at the start
+    for word in ["a", "an", "the", "some"]:
+        if message_lower.startswith(word + " "):
+            message_lower = message_lower[len(word) + 1:].strip()
+
+    # Clean up
+    query = message_lower.strip(" ?.,!")
+
+    return query if len(query) > 2 else None
+
+
 async def search_and_recommend_events(
     user_message: str,
     conversation_history: list[MessageDict] | None = None,
@@ -144,8 +196,12 @@ async def search_and_recommend_events(
     Returns:
         Tuple of (AI response with recommendations, list of scraped events).
     """
-    # Scrape all plugins concurrently
-    events = await scrape_all_plugins()
+    # Extract search query from user message
+    search_query = extract_search_query(user_message)
+    logger.info(f"Extracted search query: {search_query}")
+
+    # Scrape all plugins concurrently, passing the query to searchable plugins
+    events = await scrape_all_plugins(query=search_query)
 
     if not events:
         return (
@@ -274,15 +330,23 @@ class [Name]Plugin(ScraperPlugin):
     source_url = "[url]"
     description = "Scrapes events from [domain]"
 
-    async def scrape(self) -> list[Event]:
+    # If the site supports search, set these:
+    # search_url_template = "[url_with_{query}_placeholder]"
+    # supports_search = True
+
+    async def scrape(self, query: str | None = None) -> list[Event]:
         """Scrape events from the source.
+
+        Args:
+            query: Optional search query to filter events.
 
         Returns:
             List of Event objects scraped from the source.
             Returns empty list on error.
         """
         try:
-            markdown = await self.crawl(self.source_url)
+            url = self.get_scrape_url(query)
+            markdown = await self.crawl(url)
             return self._parse_events(markdown)
         except Exception as e:
             logger.error(f"Error scraping events: {e}")
@@ -358,12 +422,14 @@ class [Name]Plugin(ScraperPlugin):
 IMPORTANT REQUIREMENTS:
 1. The class MUST inherit from ScraperPlugin
 2. The class MUST have name, source_url, and description class attributes
-3. The scrape() method MUST be async and return list[Event]
-4. Always use try/except in scrape() and return empty list on error
-5. Use the inherited self.crawl(url) method to fetch page content as markdown
-6. Parse the markdown to extract event information
-7. Use uuid.uuid4() for event IDs
-8. The file should be self-contained with all necessary imports
+3. The scrape() method MUST be async, accept optional query parameter, and return list[Event]
+4. If the site supports search, set search_url_template with {query} placeholder and supports_search = True
+5. Use self.get_scrape_url(query) to get the URL (handles search URLs automatically)
+6. Always use try/except in scrape() and return empty list on error
+7. Use the inherited self.crawl(url) method to fetch page content as markdown
+8. Parse the markdown to extract event information
+9. Use uuid.uuid4() for event IDs
+10. The file should be self-contained with all necessary imports
 
 Analyze the page structure provided and implement appropriate parsing logic.
 Return ONLY the Python code, no explanations or markdown code blocks.
