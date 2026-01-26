@@ -61,15 +61,17 @@ You have access to tools that let you:
 ## Response Guidelines
 When presenting events to users, ALWAYS include:
 - **Event title** as a clickable markdown link: [Event Title](url)
-- **Date and time** if available
+- **Date and time** using the exact day name from the data (the "day" field tells you the correct day)
 - **Location** if available
 - Brief description of why this event matches their interests
 
 Example format:
 ### [SF AI Builders Meetup](https://lu.ma/abc123)
-📅 Saturday, Feb 1 • 6:00 PM
+📅 Monday, Jan 26 • 6:00 PM
 📍 San Francisco, CA
 Great for networking with AI enthusiasts and builders.
+
+IMPORTANT: Use the "day" field from event data for the day name (e.g., "Monday", "Tuesday"). Never calculate or guess the day of week yourself.
 
 ## Important
 - Always use the search_events tool to get real event data - never make up events
@@ -93,10 +95,18 @@ def format_events_for_tool_response(events: list[Event]) -> str:
 
     events_data = []
     for event in events:
+        # Include both date and day name so the AI doesn't have to guess
+        date_str = None
+        day_name = None
+        if event.date:
+            date_str = event.date.strftime("%Y-%m-%d")
+            day_name = event.date.strftime("%A")  # e.g., "Monday"
+
         event_dict = {
             "title": event.title,
             "url": event.url,
-            "date": event.date.strftime("%Y-%m-%d") if event.date else None,
+            "date": date_str,
+            "day": day_name,
             "time": event.time,
             "location": event.location,
             "description": event.description,
