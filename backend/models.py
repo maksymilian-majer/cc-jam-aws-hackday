@@ -17,3 +17,17 @@ class Event(BaseModel):
     url: str
     source: str
     tags: list[str] = Field(default_factory=list)
+
+
+class ChatRequest(BaseModel):
+    """Request model for chat endpoint."""
+
+    message: str
+    conversation_id: str | None = None
+
+
+class ChatResponse(BaseModel):
+    """Response model for chat endpoint."""
+
+    response: str
+    conversation_id: str
