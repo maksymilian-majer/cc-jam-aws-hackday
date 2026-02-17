@@ -1,6 +1,46 @@
-# EventFinder
+# Schedule Hacker
 
-AI-powered event discovery with chat-based interface and plugin-based scrapers.
+**Discover events through conversation. Generate scrapers with AI.**
+
+---
+
+Schedule Hacker is a chat-first application that helps you find hackathons, meetups, and startup events by simply describing what you're looking for. Tell it "I want AI hackathons in SF this month" and it searches across multiple event sources to surface the best matches.
+
+The magic? Ask it to scrape any event website and it will generate a working plugin on the fly. Say "create a plugin for eventbrite.com" and watch it crawl the site, understand its structure, and write a Python scraper—no restart required.
+
+**Tech Stack:**
+- FastAPI + React/TypeScript
+- Claude API for recommendations & code generation
+- crawl4ai for intelligent web scraping
+- Dynamic plugin architecture with hot-reload
+
+**Key Features:**
+- Natural language event search
+- AI-powered event ranking & explanations
+- On-demand scraper generation
+- Extensible plugin system
+
+## Event Sources
+
+### Scraping targets
+
+| Source | URL |
+|--------|-----|
+| Founders Bay Newsletter | https://www.foundersbay.com/events |
+| Luma SF | https://luma.com/sf |
+| Cerebral Valley Events | https://cerebralvalley.ai/events |
+| Luma GenAI SF | https://luma.com/genai-sf |
+| Luma Bay Area Product | https://luma.com/BayAreaProduct |
+| Luma Frontier Tower | https://luma.com/frontiertower |
+| Creators Corner (Luma) | https://luma.com/user/usr-031s41mSnC3XpXz |
+| AI Collective Events | http://aicollective.com/events |
+
+### Inbound email via Resend
+
+| Source | Email / Notes |
+|--------|---------------|
+| Cerebral Valley | `team@mail.cerebralvalley.ai` |
+| Creators Corner HQ | Newsletter from https://creatorscornerhq.beehiiv.com/ |
 
 ## Quickstart
 
