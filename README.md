@@ -24,22 +24,22 @@ The magic? Ask it to scrape any event website and it will generate a working plu
 
 ### Scraping targets
 
-| Source | URL |
-|--------|-----|
-| Founders Bay Newsletter | https://www.foundersbay.com/events |
-| Luma SF | https://luma.com/sf |
-| Cerebral Valley Events | https://cerebralvalley.ai/events |
-| Luma GenAI SF | https://luma.com/genai-sf |
-| Luma Bay Area Product | https://luma.com/BayAreaProduct |
-| Luma Frontier Tower | https://luma.com/frontiertower |
-| Creators Corner (Luma) | https://luma.com/user/usr-031s41mSnC3XpXz |
-| AI Collective Events | http://aicollective.com/events |
+| Source                  | URL                                       |
+|-------------------------|-------------------------------------------|
+| Founders Bay Newsletter | https://www.foundersbay.com/events        |
+| Luma SF                 | https://luma.com/sf                       |
+| Cerebral Valley Events  | https://cerebralvalley.ai/events          |
+| Luma GenAI SF           | https://luma.com/genai-sf                 |
+| Luma Bay Area Product   | https://luma.com/BayAreaProduct           |
+| Luma Frontier Tower     | https://luma.com/frontiertower            |
+| Creators Corner (Luma)  | https://luma.com/user/usr-031s41mSnC3XpXz |
+| AI Collective Events    | http://aicollective.com/events            |
 
 ### Inbound email via Resend
 
-| Source | Email / Notes |
-|--------|---------------|
-| Cerebral Valley | `team@mail.cerebralvalley.ai` |
+| Source             | Email / Notes                                         |
+|--------------------|-------------------------------------------------------|
+| Cerebral Valley    | `team@mail.cerebralvalley.ai`                         |
 | Creators Corner HQ | Newsletter from https://creatorscornerhq.beehiiv.com/ |
 
 ## Quickstart
@@ -120,14 +120,14 @@ Open `http://localhost:5173` in your browser and try:
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/health` | GET | Health check |
-| `/api/plugins` | GET | List loaded plugins |
-| `/api/chat` | POST | Send chat message |
+| Endpoint       | Method | Description         |
+|----------------|--------|---------------------|
+| `/api/health`  | GET    | Health check        |
+| `/api/plugins` | GET    | List loaded plugins |
+| `/api/chat`    | POST   | Send chat message   |
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
+| Variable            | Description                       |
+|---------------------|-----------------------------------|
 | `ANTHROPIC_API_KEY` | Your Anthropic API key (required) |
