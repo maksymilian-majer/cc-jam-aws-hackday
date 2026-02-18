@@ -262,4 +262,5 @@ Additional plugins to be generated via the plugin generation feature during demo
 - Meetup (`meetup.com/find/?location=us--ca--San+Francisco&source=EVENTS`)
 - Cerebral Valley (`cerebralvalley.ai/events`)
 - Eventbrite
+- Brderless (inbound email from `joinbrderless@substack.com`)
 - Others as needed
