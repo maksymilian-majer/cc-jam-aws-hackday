@@ -56,6 +56,9 @@ htmlcov/
 .env.local
 .env*.local
 
+# Conductor
+.context/
+
 # OS
 .DS_Store
 Thumbs.db
