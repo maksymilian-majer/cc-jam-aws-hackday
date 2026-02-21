@@ -41,6 +41,7 @@ The magic? Ask it to scrape any event website and it will generate a working plu
 |--------------------|-------------------------------------------------------|
 | Cerebral Valley    | `team@mail.cerebralvalley.ai`                         |
 | Creators Corner HQ | Newsletter from https://creatorscornerhq.beehiiv.com/ |
+| Brderless          | `joinbrderless@substack.com`                          |
 
 ## Quickstart
 
